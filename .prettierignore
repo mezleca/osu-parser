@@ -1,0 +1,6 @@
+node_modules
+dist
+build
+prebuilds
+lib
+compile_commands.json

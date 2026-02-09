@@ -3,10 +3,7 @@ import path from "path";
 
 import { get_property, get_section, parse } from "../../src/index";
 
-const TEST_LOCATION =
-    process.platform == "linux"
-        ? "/home/rel/.local/share/osu-wine/osu!/Songs/"
-        : "C:\\Users\\rel\\AppData\\Local\\osu!";
+const TEST_LOCATION = process.platform == "linux" ? "/home/rel/.local/share/osu-wine/osu!/Songs/" : "C:\\Users\\rel\\AppData\\Local\\osu!";
 
 const main = async () => {
     console.log("reading files from osu! songs folder...\n");
@@ -68,10 +65,7 @@ const main = async () => {
     console.log("  SliderMultiplier:", parsed.Difficulty.SliderMultiplier);
 
     console.log("\n[Events]");
-    console.log(
-        "  background:",
-        parsed.Events.background?.filename || "(none)"
-    );
+    console.log("  background:", parsed.Events.background?.filename || "(none)");
     console.log("  video:", parsed.Events.video?.filename || "(none)");
     console.log("  breaks:", parsed.Events.breaks.length);
 
@@ -79,12 +73,7 @@ const main = async () => {
     console.log("  count:", parsed.TimingPoints.length);
     if (parsed.TimingPoints.length > 0) {
         const first = parsed.TimingPoints[0];
-        console.log(
-            "  first: time=%d beatLength=%d uninherited=%d",
-            first.time,
-            first.beatLength,
-            first.uninherited
-        );
+        console.log("  first: time=%d beatLength=%d uninherited=%d", first.time, first.beatLength, first.uninherited);
     }
 
     console.log("\n[Colours]");
@@ -103,21 +92,10 @@ const main = async () => {
         if (first.type & 8) type_flags.push("spinner");
         if (first.type & 128) type_flags.push("hold");
 
-        console.log(
-            "  first: pos=(%d,%d) time=%d type=[%s]",
-            first.x,
-            first.y,
-            first.time,
-            type_flags.join(",")
-        );
+        console.log("  first: pos=(%d,%d) time=%d type=[%s]", first.x, first.y, first.time, type_flags.join(","));
 
         if (first.type & 2) {
-            console.log(
-                "    curveType=%s slides=%d length=%d",
-                first.curveType,
-                first.slides,
-                first.length
-            );
+            console.log("    curveType=%s slides=%d length=%d", first.curveType, first.slides, first.length);
         }
     }
 

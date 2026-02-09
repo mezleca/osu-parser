@@ -1,33 +1,98 @@
-console.log("[parser] wrapper loaded");
-
 import type { OsuFileFormat } from "../types/types";
 
 let wasm_instance: any = null;
 let init_promise: Promise<void> | null = null;
+let wasm_factory: ((module_config?: Record<string, unknown>) => any) | null = null;
+let wasm_global_name = "create_osu_parser";
+const script_loaders: Map<string, Promise<void>> = new Map();
 
-const get_factory = () => {
-    return (globalThis as any).create_osu_parser;
+type wasm_init_options = {
+    factory?: (module_config?: Record<string, unknown>) => any;
+    script_url?: string;
+    global_name?: string;
+    module_config?: Record<string, unknown>;
 };
 
-export const init_wasm = async (): Promise<void> => {
+const get_global_name = (options: wasm_init_options): string => {
+    return options.global_name || wasm_global_name;
+};
+
+const load_script = (script_url: string): Promise<void> => {
+    const existing = script_loaders.get(script_url);
+    if (existing) return existing;
+
+    const loader = new Promise<void>((resolve, reject) => {
+        if (typeof document == "undefined") {
+            reject(new Error("script loading requires a browser environment"));
+            return;
+        }
+
+        const script = document.createElement("script");
+        script.src = script_url;
+        script.async = true;
+
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error(`failed to load wasm script: ${script_url}`));
+
+        document.head.appendChild(script);
+    });
+
+    script_loaders.set(script_url, loader);
+    return loader;
+};
+
+const resolve_factory = async (options: wasm_init_options): Promise<any> => {
+    if (options.factory) return options.factory;
+    if (wasm_factory) return wasm_factory;
+
+    if (options.script_url) {
+        await load_script(options.script_url);
+    }
+
+    const global_name = get_global_name(options);
+    return (globalThis as any)[global_name];
+};
+
+export const set_wasm_factory = (
+    factory: (module_config?: Record<string, unknown>) => any,
+    global_name?: string
+): void => {
+    wasm_factory = factory;
+    if (global_name) {
+        wasm_global_name = global_name;
+    }
+};
+
+export const is_wasm_ready = (): boolean => {
+    return wasm_instance != null;
+};
+
+export const init_wasm = async (options: wasm_init_options = {}): Promise<void> => {
     if (wasm_instance) return;
     if (init_promise) return init_promise;
 
     init_promise = (async () => {
-        const factory = get_factory();
-        if (typeof factory !== "function") {
-            throw new Error("create_osu_parser not found in global scope");
+        const factory = await resolve_factory(options);
+        if (typeof factory != "function") {
+            const global_name = get_global_name(options);
+            throw new Error(`wasm factory not found: ${global_name}`);
         }
 
-        try {
-            wasm_instance = await factory();
-        } catch (e) {
-            console.error(e);
-            throw e;
-        }
+        wasm_instance = await factory(options.module_config);
     })();
 
-    return init_promise;
+    return init_promise.catch((err) => {
+        init_promise = null;
+        throw err;
+    });
+};
+
+export const init_wasm_from_url = async (
+    script_url: string,
+    module_config: Record<string, unknown> = {},
+    global_name?: string
+): Promise<void> => {
+    return init_wasm({ script_url, module_config, global_name });
 };
 
 export const get_property = (data: Uint8Array, key: string): string => {
@@ -84,15 +149,3 @@ export const parse = (data: Uint8Array): OsuFileFormat => {
         wasm_instance._free(buffer_ptr);
     }
 };
-
-if (typeof window != "undefined") {
-    (window as any).beatmap_parser = {
-        init_wasm,
-        get_property,
-        get_properties,
-        get_section,
-        parse,
-    };
-    console.log((window as any).beatmap_parser);
-    console.log("[parser] attached to window");
-}

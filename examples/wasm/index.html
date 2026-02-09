@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
     <head>
         <title>WASM Example</title>
@@ -94,8 +94,8 @@
                     await beatmap_parser.init_wasm();
                     log_status("wasm loaded", "#00ff88");
 
-                    await parse_file("1.osu");
-                    await parse_file("2.osu");
+                    await parse_file("/tests/data/1.osu");
+                    await parse_file("/tests/data/2.osu");
 
                     log_status("done", "#00ff88");
                 } catch (e) {

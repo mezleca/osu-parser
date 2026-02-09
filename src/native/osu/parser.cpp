@@ -110,7 +110,11 @@ std::optional<std::string> parse_event_filename(std::string_view line, bool is_v
     auto event_type = trim_view(parts[0]);
     auto start_time = trim_view(parts[1]);
 
-    if (event_type != "0" || start_time != "0") {
+    if (is_video) {
+        if (event_type != "Video" && event_type != "1") {
+            return std::nullopt;
+        }
+    } else if (event_type != "0" || start_time != "0") {
         return std::nullopt;
     }
 
@@ -538,6 +542,10 @@ hit_sample parse_hit_sample(std::string_view str) {
     return hs;
 }
 
+hit_sample default_hit_sample() {
+    return parse_hit_sample("0:0:0:0:");
+}
+
 std::vector<hit_object> parse_hit_objects(const std::vector<std::string>& lines) {
     std::vector<hit_object> objects;
     objects.reserve(lines.size());
@@ -579,11 +587,14 @@ std::vector<hit_object> parse_hit_objects(const std::vector<std::string>& lines)
 
             ho.slides = parse_int(parts[6], 1);
             ho.length = parse_double(parts[7], 0.0);
+            int edge_count = ho.slides + 1;
 
             if (parts.size() > 8) {
                 for (const auto& s : split_view(parts[8], '|')) {
                     ho.edge_sounds.push_back(parse_int(s, 0));
                 }
+            } else {
+                ho.edge_sounds.assign(edge_count, 0);
             }
 
             if (parts.size() > 9) {
@@ -593,15 +604,21 @@ std::vector<hit_object> parse_hit_objects(const std::vector<std::string>& lines)
                         ho.edge_sets.push_back({parse_int(set[0], 0), parse_int(set[1], 0)});
                     }
                 }
+            } else {
+                ho.edge_sets.assign(edge_count, {0, 0});
             }
 
             if (parts.size() > 10) {
                 ho.sample = parse_hit_sample(parts[10]);
+            } else {
+                ho.sample = default_hit_sample();
             }
         } else if (is_spinner && parts.size() >= 6) {
             ho.end_time = parse_int(parts[5], 0);
             if (parts.size() > 6) {
                 ho.sample = parse_hit_sample(parts[6]);
+            } else {
+                ho.sample = default_hit_sample();
             }
         } else if (is_hold && parts.size() >= 6) {
             auto hold_parts = split_view(parts[5], ':');
@@ -616,9 +633,13 @@ std::vector<hit_object> parse_hit_objects(const std::vector<std::string>& lines)
                     sample_str += std::string(hold_parts[i]);
                 }
                 ho.sample = parse_hit_sample(sample_str);
+            } else {
+                ho.sample = default_hit_sample();
             }
         } else if (is_circle && parts.size() >= 6) {
             ho.sample = parse_hit_sample(parts[5]);
+        } else if (is_circle) {
+            ho.sample = default_hit_sample();
         }
 
         objects.push_back(ho);

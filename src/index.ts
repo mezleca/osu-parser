@@ -5,10 +5,7 @@ export const get_property = (data: Uint8Array, key: OsuKey): string => {
     return native.get_property(data, key);
 };
 
-export const get_properties = (
-    input: Uint8Array | OsuInput,
-    keys: OsuKey[]
-): Record<string, string> => {
+export const get_properties = (input: Uint8Array | OsuInput, keys: OsuKey[]): Record<string, string> => {
     const data = input instanceof Uint8Array ? input : input.data;
     const result = native.get_properties(data, keys);
 
@@ -28,5 +25,13 @@ export const parse = (input: Uint8Array | OsuInput): OsuFileFormat => {
     return native.parse(data);
 };
 
+const parser = {
+    get_property,
+    get_properties,
+    get_section,
+    parse
+};
+
 export type { OsuKey, OsuInput, OsuFileFormat };
 export * from "./types/types";
+export default parser;
