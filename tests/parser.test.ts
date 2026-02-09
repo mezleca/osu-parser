@@ -10,7 +10,7 @@ type parser_api = {
 };
 
 const DATA_DIR = path.join(import.meta.dir, "data");
-const DATA_FILES = ["1.osu", "2.osu"];
+const DATA_FILES = ["1.osu", "2.osu", "jeff.osu"];
 
 const load_data = (name: string): Uint8Array => {
     const file_path = path.join(DATA_DIR, name);
@@ -51,6 +51,19 @@ const run_common_tests = (label: string, api: parser_api) => {
             expect(slider.edgeSounds.length).toBe(slider.slides + 1);
             expect(slider.edgeSets.length).toBe(slider.slides + 1);
             expect(slider.hitSample).toBeTruthy();
+        });
+
+        test("timing points preserve red/green ordering at same time", () => {
+            const data = load_data("jeff.osu");
+            const parsed = api.parse(data);
+            const points = parsed.TimingPoints;
+            const at_225 = points.filter((tp: any) => tp.time === 225);
+
+            expect(at_225.length).toBeGreaterThanOrEqual(2);
+            expect(at_225[0].beatLength).toBeCloseTo(666.666666666667, 6);
+            expect(at_225[0].uninherited).toBe(1);
+            expect(at_225[1].beatLength).toBe(-200);
+            expect(at_225[1].uninherited).toBe(0);
         });
 
         for (const name of DATA_FILES) {

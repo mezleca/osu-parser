@@ -270,14 +270,19 @@ std::vector<std::string> osu_parser::get_section(std::string_view content, std::
     std::vector<std::string> result;
     std::string target = "[" + std::string(section_name) + "]";
     bool in_section = false;
+    bool done = false;
 
     iterate_lines(content, [&](std::string_view line) {
+        if (done) {
+            return;
+        }
         if (line.empty()) {
             return;
         }
 
         if (line[0] == '[') {
             if (in_section) {
+                done = true;
                 return;
             }
             in_section = (line == target);
