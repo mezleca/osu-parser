@@ -41,9 +41,22 @@ const load_script = (script_url: string): Promise<void> => {
     return loader;
 };
 
+const resolve_factory_from_module = async (): Promise<((module_config?: Record<string, unknown>) => any) | null> => {
+    try {
+        const mod: any = await import("@rel-packages/osu-beatmap-parser/dist/browser/osu-parser.browser.js");
+        const factory = mod?.default ?? mod?.create_osu_parser ?? mod;
+        return typeof factory === "function" ? factory : null;
+    } catch {
+        return null;
+    }
+};
+
 const resolve_factory = async (options: wasm_init_options): Promise<any> => {
     if (options.factory) return options.factory;
     if (wasm_factory) return wasm_factory;
+
+    const module_factory = await resolve_factory_from_module();
+    if (module_factory) return module_factory;
 
     if (options.script_url) {
         await load_script(options.script_url);
