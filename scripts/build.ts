@@ -98,7 +98,7 @@ const compile_wasm = async () => {
 
     await execute_raw("bun", ["build", "src/lib/wasm-browser.ts", "--outdir", TARGET_DIR, "--target", "browser", "--format", "iife", "--minify"]);
 
-    const wrapper_bundle = path.join(TARGET_DIR, "wasm-wrapper.js");
+    const wrapper_bundle = path.join(TARGET_DIR, "wasm-browser.js");
 
     if (!fs.existsSync(wrapper_bundle)) {
         console.error("wrapper bundle failed");
