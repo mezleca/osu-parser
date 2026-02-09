@@ -1,6 +1,6 @@
 {
     "name": "@rel-packages/osu-beatmap-parser",
-    "version": "1.4.1",
+    "version": "1.4.2",
     "description": ".osu parser for nodejs",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
