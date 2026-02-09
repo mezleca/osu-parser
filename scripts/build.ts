@@ -112,6 +112,11 @@ const compile_wasm = async () => {
     const final_bundle = `${emscripten_code};${wrapper_code};`;
 
     fs.writeFileSync(path.join(TARGET_DIR, "osu-parser.browser.js"), final_bundle);
+    const dist_browser = path.join("dist", "browser");
+    if (!fs.existsSync(dist_browser)) {
+        fs.mkdirSync(dist_browser, { recursive: true });
+    }
+    fs.writeFileSync(path.join(dist_browser, "osu-parser.browser.js"), final_bundle);
 
     console.log("\nwasm bundle created: build/osu-parser.browser.js");
 };

@@ -202,6 +202,13 @@ jobs:
             - name: build typescript
               run: bun run compile:tsc
 
+            - name: include wasm bundle
+              run: |
+                  mkdir -p dist/browser
+                  if [ -f "prebuilds-tmp/wasm-build/osu-parser.browser.js" ]; then
+                      cp prebuilds-tmp/wasm-build/osu-parser.browser.js dist/browser/
+                  fi
+
             - name: publish to npm
               run: npm publish --provenance --access public
               env:
