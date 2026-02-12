@@ -103,7 +103,7 @@ jobs:
               with:
                   name: wasm-build
                   path: |
-                      build/osu-parser.browser.js
+                      dist/browser/*
                   retention-days: 7
 
     release:
@@ -200,13 +200,15 @@ jobs:
                   find prebuilds -type f
 
             - name: build typescript
-              run: bun run compile:tsc
+              run: |
+                  rm -rf dist
+                  bun run compile:tsc
 
-            - name: include wasm bundle
+            - name: include browser runtime
               run: |
                   mkdir -p dist/browser
-                  if [ -f "prebuilds-tmp/wasm-build/osu-parser.browser.js" ]; then
-                      cp prebuilds-tmp/wasm-build/osu-parser.browser.js dist/browser/
+                  if [ -d "prebuilds-tmp/wasm-build" ]; then
+                      cp prebuilds-tmp/wasm-build/* dist/browser/
                   fi
 
             - name: publish to npm
