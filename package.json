@@ -47,7 +47,16 @@
     },
     "type": "commonjs",
     "files": [
-        "dist/",
+        "dist/index.js",
+        "dist/index.d.ts",
+        "dist/lib/bindings.js",
+        "dist/lib/bindings.d.ts",
+        "dist/types/types.js",
+        "dist/types/types.d.ts",
+        "dist/browser/osu-beatmap-parser.js",
+        "dist/browser/wasm-worker.js",
+        "dist/browser/wasm-wrapper.js",
+        "dist/browser/wasm-wrapper.d.ts",
         "prebuilds/",
         "README.md"
     ],

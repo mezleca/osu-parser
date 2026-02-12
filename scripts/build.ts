@@ -141,7 +141,6 @@ const compile_wasm = async () => {
     if (!fs.existsSync(dist_browser)) {
         fs.mkdirSync(dist_browser, { recursive: true });
     }
-    fs.writeFileSync(path.join(dist_browser, "osu-parser.browser.js"), final_bundle);
     fs.copyFileSync(wrapper_module_bundle, path.join(dist_browser, "wasm-wrapper.js"));
     fs.copyFileSync(worker_module_bundle, path.join(dist_browser, "wasm-worker.js"));
     fs.copyFileSync(emscripten_js, path.join(dist_browser, "osu-beatmap-parser.js"));

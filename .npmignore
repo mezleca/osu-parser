@@ -18,3 +18,4 @@ compile_commands.json
 *.log
 bun.lock
 bun.lockb
+dist/browser/osu-parser.browser.js

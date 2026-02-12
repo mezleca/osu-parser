@@ -104,6 +104,7 @@ jobs:
                   name: wasm-build
                   path: |
                       dist/browser/*
+                      build/osu-parser.browser.js
                   retention-days: 7
 
     release:
@@ -133,9 +134,10 @@ jobs:
                       cp artifacts/prebuilds-linux-x64/osu-beatmap-parser.node release-assets/osu-beatmap-parser-linux-x64.node
                   fi
 
-                  # wasm builds (bundled + raw emscripten)
-                  if [ -d "artifacts/wasm-build" ]; then
-                      cp artifacts/wasm-build/osu-parser.browser.js release-assets/ || true
+                  # standalone browser bundle for direct script usage
+                  standalone_bundle=$(find artifacts -type f -name "osu-parser.browser.js" | head -n 1 || true)
+                  if [ -n "$standalone_bundle" ]; then
+                      cp "$standalone_bundle" release-assets/
                   fi
 
                   ls -la release-assets/
@@ -207,8 +209,8 @@ jobs:
             - name: include browser runtime
               run: |
                   mkdir -p dist/browser
-                  if [ -d "prebuilds-tmp/wasm-build" ]; then
-                      cp prebuilds-tmp/wasm-build/* dist/browser/
+                  if [ -d "prebuilds-tmp/wasm-build/dist/browser" ]; then
+                      cp prebuilds-tmp/wasm-build/dist/browser/* dist/browser/
                   fi
 
             - name: publish to npm
