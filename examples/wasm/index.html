@@ -1,108 +1,12 @@
 <!doctype html>
-<html>
+<html lang="en">
     <head>
-        <title>WASM Example</title>
-        <style>
-            body {
-                font-family: sans-serif;
-                padding: 20px;
-                background: #242424;
-                color: #eee;
-            }
-
-            h1 {
-                color: #00d9ff;
-            }
-
-            .node {
-                margin-top: 10px;
-                padding: 10px;
-                border: 1px solid #444;
-                border-radius: 4px;
-                background: #242424;
-                white-space: pre-wrap;
-                font-family: monospace;
-            }
-
-            .section {
-                color: #00d9ff;
-                margin-top: 15px;
-            }
-
-            #status {
-                font-weight: bold;
-                margin-bottom: 10px;
-            }
-        </style>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>svelte xample</title>
     </head>
-
     <body>
-        <h1>WASM Example</h1>
-
-        <div id="status">loading wasm...</div>
-        <div id="results"></div>
-
-        <script src="/build/osu-parser.browser.js"></script>
-        <script>
-            const log_status = (msg, color = "white") => {
-                const el = document.getElementById("status");
-                if (el) {
-                    el.innerText = msg;
-                    el.style.color = color;
-                }
-                console.log(`[STATUS] ${msg}`);
-            };
-
-            const add_result = (content, is_section = false) => {
-                const div = document.createElement("div");
-                div.className = is_section ? "node section" : "node";
-                div.innerText = content;
-                document.getElementById("results")?.appendChild(div);
-            };
-
-            const parse_file = async (name) => {
-                try {
-                    const res = await fetch(name);
-                    const buf = await res.arrayBuffer();
-                    const data = new Uint8Array(buf);
-
-                    // simple property test
-                    const title = beatmap_parser.get_property(data, "Title");
-                    const artist = beatmap_parser.get_property(data, "Artist");
-
-                    add_result(`${name}: ${title} - ${artist}`, true);
-
-                    // full parse
-                    const parsed = beatmap_parser.parse(data);
-
-                    // fuck it
-                    add_result(JSON.stringify(parsed, null, 4));
-                } catch (err) {
-                    console.error(err);
-                    add_result(`error ${name}: ${err.message}`);
-                }
-            };
-
-            (async () => {
-                try {
-                    log_status("initializing...");
-
-                    if (typeof beatmap_parser === "undefined") {
-                        throw new Error("beatmap_parser global not found");
-                    }
-
-                    await beatmap_parser.init_wasm();
-                    log_status("wasm loaded", "#00ff88");
-
-                    await parse_file("/tests/data/1.osu");
-                    await parse_file("/tests/data/2.osu");
-
-                    log_status("done", "#00ff88");
-                } catch (e) {
-                    log_status(e.message, "red");
-                    console.error(e);
-                }
-            })();
-        </script>
+        <div id="app"></div>
+        <script type="module" src="/src/main.js"></script>
     </body>
 </html>

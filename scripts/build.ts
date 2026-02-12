@@ -78,7 +78,6 @@ const compile_wasm = async () => {
     }
 
     const TMP_WASM = path.join(TARGET_DIR, "wasm-tmp");
-
     remove_dir(TMP_WASM);
 
     await execute_raw(emcmake_cmd, ["cmake", "-S", ".", "-B", TMP_WASM, "-G", "Ninja"]);
@@ -96,18 +95,27 @@ const compile_wasm = async () => {
     // bundle wrapper with bun
     console.log("\nbundling wasm wrapper...");
 
-    await execute_raw("bun", ["build", "src/lib/wasm-browser.ts", "--outdir", TARGET_DIR, "--target", "browser", "--format", "iife", "--minify"]);
+    await execute_raw("bun", [
+        "build",
+        "src/browser/wasm-wrapper.js",
+        "--outfile",
+        path.join(TARGET_DIR, "wasm-wrapper.js"),
+        "--target",
+        "browser",
+        "--format",
+        "esm",
+        "--minify"
+    ]);
 
-    const wrapper_bundle = path.join(TARGET_DIR, "wasm-browser.js");
-
-    if (!fs.existsSync(wrapper_bundle)) {
-        console.error("wrapper bundle failed");
+    const wrapper_module_bundle = path.join(TARGET_DIR, "wasm-wrapper.js");
+    if (!fs.existsSync(wrapper_module_bundle)) {
+        console.error("wrapper module bundle failed");
         process.exit(1);
     }
 
     // load content
     let emscripten_code = fs.readFileSync(emscripten_js, "utf-8");
-    const wrapper_code = fs.readFileSync(wrapper_bundle, "utf-8");
+    const wrapper_code = fs.readFileSync(wrapper_module_bundle, "utf-8");
 
     const final_bundle = `${emscripten_code};${wrapper_code};`;
 
@@ -117,6 +125,8 @@ const compile_wasm = async () => {
         fs.mkdirSync(dist_browser, { recursive: true });
     }
     fs.writeFileSync(path.join(dist_browser, "osu-parser.browser.js"), final_bundle);
+    fs.copyFileSync(wrapper_module_bundle, path.join(dist_browser, "wasm-wrapper.js"));
+    fs.copyFileSync(emscripten_js, path.join(dist_browser, "osu-beatmap-parser.js"));
 
     console.log("\nwasm bundle created: build/osu-parser.browser.js");
 };

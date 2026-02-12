@@ -187,9 +187,9 @@ export interface OsuFileFormat {
     HitObjects: HitObject[];
 }
 
-export interface INativeExporter {
-    get_property(data: Uint8Array, key: string): string;
-    get_properties(data: Uint8Array, keys: string[]): Record<string, string>;
-    get_section(data: Uint8Array, section: string): string[];
-    parse(data: Uint8Array): OsuFileFormat;
+export interface INativeAsyncExporter {
+    get_property(data: Uint8Array, key: string): Promise<string>;
+    get_properties(data: Uint8Array, keys: string[]): Promise<Record<string, string>>;
+    get_section(data: Uint8Array, section: string): Promise<string[]>;
+    parse(data: Uint8Array): Promise<OsuFileFormat>;
 }

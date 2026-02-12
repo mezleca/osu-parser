@@ -25,16 +25,18 @@ const main = async () => {
 
     console.log("--- single property test ---");
     console.log("file:", p);
-    console.log("title:", get_property(data, "Title"));
-    console.log("artist:", get_property(data, "Artist"));
+    console.log("title:", await get_property(data, "Title"));
+    console.log("artist:", await get_property(data, "Artist"));
 
     console.log("\n--- get_section test ---");
-    const general_lines = get_section(data, "General");
+    const general_lines = await get_section(data, "General");
     console.log("general section lines:", general_lines.length);
-    general_lines.slice(0, 3).forEach((line) => console.log("  ", line));
+    for (const line of general_lines.slice(0, 3)) {
+        console.log("  ", line);
+    }
 
     console.log("\n--- full parse test ---");
-    const parsed = parse(data);
+    const parsed = await parse(data);
 
     console.log("version:", parsed.version);
     console.log("\n[General]");
@@ -78,9 +80,10 @@ const main = async () => {
 
     console.log("\n[Colours]");
     console.log("  combos:", parsed.Colours.Combos.length);
-    parsed.Colours.Combos.forEach((c, i) => {
+    for (let i = 0; i < parsed.Colours.Combos.length; i++) {
+        const c = parsed.Colours.Combos[i];
         console.log("    Combo%d: rgb(%d, %d, %d)", i + 1, c[0], c[1], c[2]);
-    });
+    }
 
     console.log("\n[HitObjects]");
     console.log("  count:", parsed.HitObjects.length);

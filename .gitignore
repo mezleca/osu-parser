@@ -8,6 +8,7 @@ result.json
 node_modules
 prebuilds/
 dist/
+examples/wasm/public/
 *.lock
 
 # Prerequisites

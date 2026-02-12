@@ -1,75 +1,19 @@
-import type { OsuFileFormat } from "../types/types";
-
-let wasm_worker: Worker | null = null;
-let worker_init_promise: Promise<void> | null = null;
+let wasm_worker = null;
+let worker_init_promise = null;
 let worker_request_id = 0;
 let worker_is_ready = false;
-const worker_pending_requests: Map<number, { resolve: (value: any) => void; reject: (error: Error) => void }> = new Map();
+const worker_pending_requests = new Map();
+const resolve_wasm_factory_url = () => {
+    const resolved = new URL("./osu-beatmap-parser.js", import.meta.url).toString();
 
-const get_import_meta_url = (): string | null => {
-    try {
-        const resolver = new Function("return import.meta.url");
-        const value = resolver();
-        if (typeof value == "string" && value.length > 0) {
-            return value;
-        }
-    } catch {
-        return null;
+    if (resolved.includes("/@fs/") || resolved.includes("/node_modules/.vite/deps/")) {
+        return new URL("/osu-beatmap-parser.js", globalThis.location.href).toString();
     }
 
-    return null;
+    return resolved;
 };
 
-const to_wasm_factory_url = (script_url: string): string => {
-    if (script_url.includes("wasm-wrapper.js")) {
-        return script_url.replace("wasm-wrapper.js", "osu-beatmap-parser.js");
-    }
-
-    if (script_url.includes("osu-parser.browser.js")) {
-        return script_url;
-    }
-
-    const idx = script_url.lastIndexOf("/");
-    if (idx == -1) {
-        return "osu-beatmap-parser.js";
-    }
-
-    return `${script_url.slice(0, idx + 1)}osu-beatmap-parser.js`;
-};
-
-const get_script_url = (): string | null => {
-    const import_meta_url = get_import_meta_url();
-    if (import_meta_url) {
-        return to_wasm_factory_url(import_meta_url);
-    }
-
-    if (typeof document == "undefined") {
-        return null;
-    }
-
-    const current_script = document.currentScript as HTMLScriptElement | null;
-    if (current_script?.src) {
-        return to_wasm_factory_url(current_script.src);
-    }
-
-    const script_tags = document.getElementsByTagName("script");
-    for (let i = script_tags.length - 1; i >= 0; i--) {
-        const src = script_tags[i]?.src;
-        if (!src) continue;
-        if (src.includes("wasm-wrapper.js") || src.includes("osu-parser.browser.js")) {
-            return to_wasm_factory_url(src);
-        }
-    }
-
-    if (script_tags.length > 0) {
-        const last_src = script_tags[script_tags.length - 1]?.src;
-        if (last_src) {
-            return to_wasm_factory_url(last_src);
-        }
-    }
-
-    return null;
-};
+const wasm_factory_url = resolve_wasm_factory_url();
 
 const worker_script = `
 let wasm_instance = null;
@@ -159,10 +103,10 @@ self.onmessage = async (event) => {
 };
 `;
 
-const setup_worker_listener = (): void => {
+const setup_worker_listener = () => {
     if (wasm_worker == null) return;
 
-    wasm_worker.onmessage = (event: MessageEvent) => {
+    wasm_worker.onmessage = (event) => {
         const data = event.data || {};
         const id = data.id;
         const ok = data.ok;
@@ -188,7 +132,7 @@ const setup_worker_listener = (): void => {
         handlers.reject(new Error(error || "worker request failed"));
     };
 
-    wasm_worker.onerror = (event: ErrorEvent) => {
+    wasm_worker.onerror = (event) => {
         const message = event.message || "worker crashed";
         worker_is_ready = false;
         for (const [, handlers] of worker_pending_requests) {
@@ -198,7 +142,7 @@ const setup_worker_listener = (): void => {
     };
 };
 
-const worker_request = (type: "init" | "call", payload: Record<string, unknown>, transfer_list: Transferable[] = []): Promise<any> => {
+const worker_request = (type, payload, transfer_list = []) => {
     if (wasm_worker == null) {
         return Promise.reject(new Error("wasm worker not initialized"));
     }
@@ -212,15 +156,15 @@ const worker_request = (type: "init" | "call", payload: Record<string, unknown>,
     });
 };
 
-const copy_transferable_data = (data: Uint8Array): ArrayBuffer => {
+const copy_transferable_data = (data) => {
     return data.slice().buffer;
 };
 
-export const is_wasm_ready = (): boolean => {
+export const is_wasm_ready = () => {
     return wasm_worker != null && worker_is_ready;
 };
 
-export const init_wasm = async (): Promise<void> => {
+export const init_wasm = async () => {
     if (worker_is_ready) {
         return;
     }
@@ -234,11 +178,6 @@ export const init_wasm = async (): Promise<void> => {
             throw new Error("wasm wrapper requires browser Worker + Blob + URL support");
         }
 
-        const script_url = get_script_url();
-        if (!script_url) {
-            throw new Error("could not infer script_url for worker mode");
-        }
-
         const blob = new Blob([worker_script], { type: "application/javascript" });
         const worker_url = URL.createObjectURL(blob);
 
@@ -247,7 +186,7 @@ export const init_wasm = async (): Promise<void> => {
             setup_worker_listener();
 
             await worker_request("init", {
-                script_url,
+                script_url: wasm_factory_url,
                 global_name: "create_osu_parser",
                 module_config: {},
             });
@@ -266,25 +205,25 @@ export const init_wasm = async (): Promise<void> => {
     });
 };
 
-export const get_property = async (data: Uint8Array, key: string): Promise<string> => {
+export const get_property = async (data, key) => {
     const worker_data = copy_transferable_data(data);
     const result = await worker_request("call", { method_name: "get_property", data: worker_data, args: [key] }, [worker_data]);
     return result;
 };
 
-export const get_properties = async (data: Uint8Array, keys: string[]): Promise<Record<string, string>> => {
+export const get_properties = async (data, keys) => {
     const worker_data = copy_transferable_data(data);
     const result = await worker_request("call", { method_name: "get_properties", data: worker_data, args: [keys] }, [worker_data]);
     return result;
 };
 
-export const get_section = async (data: Uint8Array, section: string): Promise<string[]> => {
+export const get_section = async (data, section) => {
     const worker_data = copy_transferable_data(data);
     const result = await worker_request("call", { method_name: "get_section", data: worker_data, args: [section] }, [worker_data]);
     return result;
 };
 
-export const parse = async (data: Uint8Array): Promise<OsuFileFormat> => {
+export const parse = async (data) => {
     const worker_data = copy_transferable_data(data);
     const result = await worker_request("call", { method_name: "parse", data: worker_data, args: [] }, [worker_data]);
     return result;
@@ -298,7 +237,5 @@ const api = {
     get_section,
     parse,
 };
-
-(globalThis as any).beatmap_parser = api;
 
 export default api;

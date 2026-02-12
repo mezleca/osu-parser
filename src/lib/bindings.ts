@@ -1,10 +1,8 @@
-import nodeGypBuild from "node-gyp-build";
+import node_gyp_build from "node-gyp-build";
 import path from "path";
 
-import { INativeExporter } from "../types/types";
+import { INativeAsyncExporter } from "../types/types";
 
-const native = nodeGypBuild(
-    path.join(__dirname, "..", "..")
-) as INativeExporter;
+const native = node_gyp_build(path.join(__dirname, "..", "..")) as INativeAsyncExporter;
 
 export { native };

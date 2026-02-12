@@ -2,7 +2,11 @@
 #include "log.hpp"
 #include "osu/parser.hpp"
 #include <napi.h>
+#include <functional>
+#include <memory>
 #include <string>
+#include <unordered_map>
+#include <vector>
 
 void set_optional_color(Napi::Object& obj, Napi::Env& env, const char* key,
                         const std::optional<std::array<int, 3>>& color) {
@@ -231,107 +235,142 @@ Napi::Object file_to_js(Napi::Env& env, const osu_file_format& file) {
     return result;
 }
 
+Napi::Promise resolve_promise(Napi::Env env, const Napi::Value& value) {
+    Napi::Promise::Deferred deferred = Napi::Promise::Deferred::New(env);
+    deferred.Resolve(value);
+    return deferred.Promise();
+}
+
+class LambdaAsyncWorker : public Napi::AsyncWorker {
+public:
+    using execute_fn = std::function<void()>;
+    using resolve_fn = std::function<Napi::Value(Napi::Env)>;
+
+    LambdaAsyncWorker(Napi::Env env, std::string task_name, execute_fn exec, resolve_fn resolve)
+        : Napi::AsyncWorker(env), deferred(Napi::Promise::Deferred::New(env)), task_name(std::move(task_name)),
+          exec(std::move(exec)), resolve(std::move(resolve)) {}
+
+    void Execute() override {
+        try {
+            exec();
+        } catch (const std::exception& e) {
+            SetError(e.what());
+        }
+    }
+
+    void OnOK() override { deferred.Resolve(resolve(Env())); }
+
+    void OnError(const Napi::Error& e) override {
+        LOG_LINE("[addon]", task_name.c_str(), "error:", e.Message());
+        deferred.Reject(e.Value());
+    }
+
+    Napi::Promise GetPromise() { return deferred.Promise(); }
+
+private:
+    Napi::Promise::Deferred deferred;
+    std::string task_name;
+    execute_fn exec;
+    resolve_fn resolve;
+};
+
+Napi::Promise queue_worker(LambdaAsyncWorker* worker) {
+    Napi::Promise promise = worker->GetPromise();
+    worker->Queue();
+    return promise;
+}
+
 Napi::Value get_property(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    try {
-        if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsString()) {
-            return Napi::String::New(env, "");
-        }
-
-        auto buffer = info[0].As<Napi::Buffer<char>>();
-        std::string key = info[1].As<Napi::String>().Utf8Value();
-        std::string_view content(buffer.Data(), buffer.Length());
-
-        return Napi::String::New(env, osu_parser::get_property(content, key));
-    } catch (const std::exception& e) {
-        LOG_LINE("[addon] get_property error:", e.what());
-        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-        return env.Null();
+    if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsString()) {
+        return resolve_promise(env, Napi::String::New(env, ""));
     }
+
+    auto buffer = info[0].As<Napi::Buffer<char>>();
+    std::string content(buffer.Data(), buffer.Length());
+    std::string key = info[1].As<Napi::String>().Utf8Value();
+    auto result = std::make_shared<std::string>();
+
+    return queue_worker(new LambdaAsyncWorker(
+        env, "get_property", [content = std::move(content), key = std::move(key), result]() {
+            *result = osu_parser::get_property(content, key);
+        }, [result](Napi::Env env) { return Napi::String::New(env, *result); }));
 }
 
 Napi::Value get_properties(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    try {
-        if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsArray()) {
-            return Napi::Object::New(env);
-        }
-
-        auto buffer = info[0].As<Napi::Buffer<char>>();
-        Napi::Array keys_array = info[1].As<Napi::Array>();
-        std::vector<std::string> keys;
-        keys.reserve(keys_array.Length());
-
-        for (uint32_t i = 0; i < keys_array.Length(); i++) {
-            Napi::Value val = keys_array[i];
-            if (val.IsString()) {
-                keys.push_back(val.As<Napi::String>().Utf8Value());
-            }
-        }
-
-        std::string_view content(buffer.Data(), buffer.Length());
-        auto results = osu_parser::get_properties(content, keys);
-
-        Napi::Object obj = Napi::Object::New(env);
-        for (const auto& [k, v] : results) {
-            obj.Set(k, v);
-        }
-
-        return obj;
-    } catch (const std::exception& e) {
-        LOG_LINE("[addon] get_properties error:", e.what());
-        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-        return env.Null();
+    if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsArray()) {
+        return resolve_promise(env, Napi::Object::New(env));
     }
+
+    auto buffer = info[0].As<Napi::Buffer<char>>();
+    std::string content(buffer.Data(), buffer.Length());
+
+    Napi::Array keys_array = info[1].As<Napi::Array>();
+    std::vector<std::string> keys;
+    keys.reserve(keys_array.Length());
+
+    for (uint32_t i = 0; i < keys_array.Length(); i++) {
+        Napi::Value val = keys_array[i];
+        if (val.IsString()) {
+            keys.push_back(val.As<Napi::String>().Utf8Value());
+        }
+    }
+
+    auto result = std::make_shared<std::unordered_map<std::string, std::string>>();
+
+    return queue_worker(new LambdaAsyncWorker(
+        env, "get_properties", [content = std::move(content), keys = std::move(keys), result]() {
+            *result = osu_parser::get_properties(content, keys);
+        }, [result](Napi::Env env) {
+            Napi::Object obj = Napi::Object::New(env);
+            for (const auto& [k, v] : *result) {
+                obj.Set(k, v);
+            }
+            return obj;
+        }));
 }
 
 Napi::Value get_section(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    try {
-        if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsString()) {
-            return Napi::Array::New(env);
-        }
-
-        auto buffer = info[0].As<Napi::Buffer<char>>();
-        std::string section = info[1].As<Napi::String>().Utf8Value();
-        std::string_view content(buffer.Data(), buffer.Length());
-
-        auto lines = osu_parser::get_section(content, section);
-
-        Napi::Array result = Napi::Array::New(env, lines.size());
-        for (size_t i = 0; i < lines.size(); i++) {
-            result.Set(static_cast<uint32_t>(i), lines[i]);
-        }
-
-        return result;
-    } catch (const std::exception& e) {
-        LOG_LINE("[addon] get_section error:", e.what());
-        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-        return env.Null();
+    if (info.Length() < 2 || !info[0].IsBuffer() || !info[1].IsString()) {
+        return resolve_promise(env, Napi::Array::New(env));
     }
+
+    auto buffer = info[0].As<Napi::Buffer<char>>();
+    std::string content(buffer.Data(), buffer.Length());
+    std::string section = info[1].As<Napi::String>().Utf8Value();
+    auto result = std::make_shared<std::vector<std::string>>();
+
+    return queue_worker(new LambdaAsyncWorker(
+        env, "get_section", [content = std::move(content), section = std::move(section), result]() {
+            *result = osu_parser::get_section(content, section);
+        }, [result](Napi::Env env) {
+            Napi::Array arr = Napi::Array::New(env, result->size());
+            for (size_t i = 0; i < result->size(); i++) {
+                arr.Set(static_cast<uint32_t>(i), (*result)[i]);
+            }
+            return arr;
+        }));
 }
 
 Napi::Value parse(const Napi::CallbackInfo& info) {
     Napi::Env env = info.Env();
 
-    try {
-        if (info.Length() < 1 || !info[0].IsBuffer()) {
-            return Napi::Object::New(env);
-        }
-
-        auto buffer = info[0].As<Napi::Buffer<char>>();
-        std::string_view content(buffer.Data(), buffer.Length());
-
-        osu_file_format file = osu_parser::parse(content);
-        return file_to_js(env, file);
-    } catch (const std::exception& e) {
-        LOG_LINE("[addon] parse error:", e.what());
-        Napi::Error::New(env, e.what()).ThrowAsJavaScriptException();
-        return env.Null();
+    if (info.Length() < 1 || !info[0].IsBuffer()) {
+        return resolve_promise(env, Napi::Object::New(env));
     }
+
+    auto buffer = info[0].As<Napi::Buffer<char>>();
+    std::string content(buffer.Data(), buffer.Length());
+    auto result = std::make_shared<osu_file_format>();
+
+    return queue_worker(new LambdaAsyncWorker(
+        env, "parse", [content = std::move(content), result]() { *result = osu_parser::parse(content); },
+        [result](Napi::Env env) { return file_to_js(env, *result); }));
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports) {
