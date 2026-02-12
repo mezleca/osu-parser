@@ -29,7 +29,7 @@
         "test:wasm-browser": "bun run compile:native && bun run compile:tsc && bun run compile:wasm && cross-env RUN_BROWSER_WASM_TESTS=1 bun test tests/parser.test.ts",
         "prebuild": "bun run format",
         "build": "bun scripts/build.ts all && npm run compile:tsc",
-        "example:wasm": "bun run compile:wasm && mkdir -p examples/wasm/public && cp tests/data/1.osu examples/wasm/public/1.osu && cp tests/data/2.osu examples/wasm/public/2.osu && bun run --cwd examples/wasm dev",
+        "example:wasm": "bun run compile:wasm && mkdir -p examples/wasm/public && cp tests/data/* examples/wasm/public/ && bun run --cwd examples/wasm dev",
         "example:node": "bun run compile:native && bun run examples/node/index.ts"
     },
     "keywords": [

@@ -61,11 +61,6 @@
         color: #eee;
     }
 
-    h1 {
-        color: #00d9ff;
-        margin-top: 0;
-    }
-
     .status {
         font-weight: 700;
         margin-bottom: 10px;

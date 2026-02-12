@@ -97,7 +97,7 @@ const compile_wasm = async () => {
 
     await execute_raw("bun", [
         "build",
-        "src/browser/wasm-wrapper.js",
+        "src/browser/wasm-wrapper.ts",
         "--outfile",
         path.join(TARGET_DIR, "wasm-wrapper.js"),
         "--target",
@@ -106,15 +106,32 @@ const compile_wasm = async () => {
         "esm",
         "--minify"
     ]);
+    await execute_raw("bun", [
+        "build",
+        "src/browser/wasm-worker.ts",
+        "--outfile",
+        path.join(TARGET_DIR, "wasm-worker.js"),
+        "--target",
+        "browser",
+        "--format",
+        "esm",
+        "--minify"
+    ]);
 
     const wrapper_module_bundle = path.join(TARGET_DIR, "wasm-wrapper.js");
+    const worker_module_bundle = path.join(TARGET_DIR, "wasm-worker.js");
     if (!fs.existsSync(wrapper_module_bundle)) {
         console.error("wrapper module bundle failed");
+        process.exit(1);
+    }
+    if (!fs.existsSync(worker_module_bundle)) {
+        console.error("worker module bundle failed");
         process.exit(1);
     }
 
     // load content
     let emscripten_code = fs.readFileSync(emscripten_js, "utf-8");
+    emscripten_code = emscripten_code.replace(/\n\/\/# sourceMappingURL=.*$/g, "");
     const wrapper_code = fs.readFileSync(wrapper_module_bundle, "utf-8");
 
     const final_bundle = `${emscripten_code};${wrapper_code};`;
@@ -126,6 +143,7 @@ const compile_wasm = async () => {
     }
     fs.writeFileSync(path.join(dist_browser, "osu-parser.browser.js"), final_bundle);
     fs.copyFileSync(wrapper_module_bundle, path.join(dist_browser, "wasm-wrapper.js"));
+    fs.copyFileSync(worker_module_bundle, path.join(dist_browser, "wasm-worker.js"));
     fs.copyFileSync(emscripten_js, path.join(dist_browser, "osu-beatmap-parser.js"));
 
     console.log("\nwasm bundle created: build/osu-parser.browser.js");
