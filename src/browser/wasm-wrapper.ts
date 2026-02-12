@@ -12,7 +12,6 @@ let worker_is_ready = false;
 
 const worker_pending_requests: Map<number, worker_pending> = new Map();
 const wasm_factory_url = new URL("./osu-beatmap-parser.js", import.meta.url).toString();
-const wasm_worker_url = new URL("./wasm-worker.js", import.meta.url).toString();
 
 const setup_worker_listener = (): void => {
     if (wasm_worker == null) {
@@ -92,7 +91,7 @@ export const init_wasm = async (): Promise<void> => {
             throw new Error("wasm wrapper requires browser Worker support");
         }
 
-        wasm_worker = new Worker(wasm_worker_url, { type: "module" });
+        wasm_worker = new Worker(new URL("./wasm-worker.js", import.meta.url), { type: "module" });
         setup_worker_listener();
 
         await worker_request("init", {
