@@ -145,6 +145,7 @@ const compile_wasm = async () => {
     fs.copyFileSync(wrapper_module_bundle, path.join(dist_browser, "wasm-wrapper.js"));
     fs.copyFileSync(worker_module_bundle, path.join(dist_browser, "wasm-worker.js"));
     fs.copyFileSync(emscripten_js, path.join(dist_browser, "osu-beatmap-parser.js"));
+    fs.copyFileSync(path.join("src", "browser", "wasm-wrapper.d.ts"), path.join(dist_browser, "wasm-wrapper.d.ts"));
 
     console.log("\nwasm bundle created: build/osu-parser.browser.js");
 };

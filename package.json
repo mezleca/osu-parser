@@ -10,6 +10,7 @@
             "default": "./dist/index.js"
         },
         "./browser": {
+            "types": "./dist/browser/wasm-wrapper.d.ts",
             "import": "./dist/browser/wasm-wrapper.js",
             "default": "./dist/browser/wasm-wrapper.js"
         }
