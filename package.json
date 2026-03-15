@@ -1,51 +1,17 @@
 {
-    "name": "@rel-packages/osu-beatmap-parser",
-    "version": "1.5.6",
-    "description": ".osu parser for nodejs",
+    "name": "@rel-packages/osu-parser-core",
+    "version": "0.1.0",
+    "description": "osu parser core",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
-    "exports": {
-        ".": {
-            "types": "./dist/index.d.ts",
-            "require": "./dist/index.js",
-            "default": "./dist/index.js"
-        },
-        "./browser": {
-            "types": "./dist/browser/wasm-wrapper.d.ts",
-            "import": "./dist/browser/wasm-wrapper.js",
-            "default": "./dist/browser/wasm-wrapper.js"
-        }
-    },
-    "homepage": "https://github.com/mezleca/osu-beatmap-parser",
-    "scripts": {
-        "update:patch": "npm version patch && git push --follow-tags",
-        "update:minor": "npm version minor && git push --follow-tags",
-        "update:major": "npm version major && git push --follow-tags",
-        "prepublishOnly": "npm run compile:tsc && mkdir -p lib",
-        "compile:native": "bun scripts/build.ts native",
-        "compile:wasm": "bun scripts/build.ts wasm",
-        "compile:tsc": "tsc",
-        "format": "prettier --write . --ignore-unknown",
-        "pretest": "bun run format",
-        "test": "bun run compile:native && bun run compile:tsc && bun test tests/parser.test.ts",
-        "test:wasm-browser": "bun run compile:native && bun run compile:tsc && bun run compile:wasm && cross-env RUN_BROWSER_WASM_TESTS=1 bun test tests/parser.test.ts",
-        "prebuild": "bun run format",
-        "build": "bun scripts/build.ts all && npm run compile:tsc",
-        "example:wasm": "bun run compile:wasm && mkdir -p examples/wasm/public && cp tests/data/* examples/wasm/public/ && bun run --cwd examples/wasm dev",
-        "example:node": "bun run compile:native && bun run examples/node/index.ts"
-    },
-    "keywords": [
-        "osu",
-        "beatmap",
-        "parser",
-        "native"
-    ],
-    "author": "",
-    "license": "ISC",
-    "repository": {
-        "url": "https://github.com/mezleca/osu-beatmap-parser.git"
-    },
     "type": "commonjs",
+    "scripts": {
+        "compile:native": "bun scripts/build.ts native",
+        "compile:tsc": "tsc",
+        "build": "bun scripts/build.ts native && tsc",
+        "format": "prettier --write . --ignore-unknown",
+        "example": "bun run examples/basic.ts"
+    },
     "files": [
         "dist/index.js",
         "dist/index.d.ts",
@@ -53,25 +19,14 @@
         "dist/lib/bindings.d.ts",
         "dist/types/types.js",
         "dist/types/types.d.ts",
-        "dist/browser/osu-beatmap-parser.js",
-        "dist/browser/wasm-worker.js",
-        "dist/browser/wasm-wrapper.js",
-        "dist/browser/wasm-wrapper.d.ts",
-        "prebuilds/",
-        "README.md"
+        "prebuilds/"
     ],
     "devDependencies": {
-        "@rel-packages/osu-beatmap-parser": "^1.1.2",
-        "@types/bindings": "^1.5.5",
         "@types/node": "^24.10.4",
         "bun-types": "^1.3.9",
         "cmake-js": "^7.4.0",
-        "cross-env": "^7.0.3",
         "node-addon-api": "^8.5.0",
-        "playwright": "^1.58.2",
         "prettier": "^3.6.2",
-        "prettier-plugin-svelte": "^3.4.1",
-        "tsx": "^4.21.0",
         "typescript": "^5.9.3"
     },
     "dependencies": {

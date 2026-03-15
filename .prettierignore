@@ -1,6 +1,5 @@
 node_modules
-dist
 build
+dist
 prebuilds
-lib
-compile_commands.json
+osu-beatmap-parser

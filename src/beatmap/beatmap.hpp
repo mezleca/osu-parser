@@ -1,5 +1,7 @@
 #pragma once
+
 #include <array>
+#include <cstdint>
 #include <optional>
 #include <string>
 #include <unordered_map>
@@ -10,31 +12,31 @@ enum OSU_SECTIONS { General = 0, Editor, Metadata, Difficulty, Events, TimingPoi
 
 struct general_section {
     std::string audio_filename;
-    int audio_lead_in = 0;  // ms of silence before audio
+    int32_t audio_lead_in = 0;
     std::string audio_hash; // deprecated
-    int preview_time = -1;  // preview start time in ms
-    int countdown = 1;      // 0=none, 1=normal, 2=half, 3=double
+    int32_t preview_time = -1;
+    int32_t countdown = 1;      // 0=none, 1=normal, 2=half, 3=double
     std::string sample_set = "Normal";
-    double stack_leniency = 0.7; // how close objects stack (0-1)
-    int mode = 0;                // 0=std, 1=taiko, 2=ctb, 3=mania
-    int letterbox_in_breaks = 0;
-    int story_fire_in_front = 1; // deprecated
-    int use_skin_sprites = 0;
-    int always_show_playfield = 0; // deprecated
+    double stack_leniency = 0.7;
+    int32_t mode = 0;                // 0=std, 1=taiko, 2=ctb, 3=mania
+    int32_t letterbox_in_breaks = 0;
+    int32_t story_fire_in_front = 1; // deprecated
+    int32_t use_skin_sprites = 0;
+    int32_t always_show_playfield = 0; // deprecated
     std::string overlay_position = "NoChange";
     std::string skin_preference;
-    int epilepsy_warning = 0;
-    int countdown_offset = 0;
-    int special_style = 0; // mania n+1 layout
-    int widescreen_storyboard = 0;
-    int samples_match_playback_rate = 0;
+    int32_t epilepsy_warning = 0;
+    int32_t countdown_offset = 0;
+    int32_t special_style = 0;
+    int32_t widescreen_storyboard = 0;
+    int32_t samples_match_playback_rate = 0;
 };
 
 struct editor_section {
-    std::vector<int> bookmarks; // bookmark times in ms
+    std::vector<int> bookmarks;
     double distance_spacing = 1.0;
-    int beat_divisor = 4;
-    int grid_size = 4;
+    int32_t beat_divisor = 4;
+    int32_t grid_size = 4;
     double timeline_zoom = 1.0;
 };
 
@@ -44,49 +46,49 @@ struct metadata_section {
     std::string artist;
     std::string artist_unicode;
     std::string creator;
-    std::string version; // difficulty name
+    std::string version;
     std::string source;
     std::string tags;
-    int beatmap_id = -1;
-    int beatmap_set_id = -1;
+    int32_t beatmap_id = -1;
+    int32_t beatmap_set_id = -1;
 };
 
 struct difficulty_section {
-    double hp_drain_rate = 5.0;      // 0-10
-    double circle_size = 5.0;        // 0-10
-    double overall_difficulty = 5.0; // 0-10
-    double approach_rate = 5.0;      // 0-10
-    double slider_multiplier = 1.4;  // base slider velocity
-    double slider_tick_rate = 1.0;   // ticks per beat
+    double hp_drain_rate = 5.0;
+    double circle_size = 5.0;
+    double overall_difficulty = 5.0;
+    double approach_rate = 5.0;
+    double slider_multiplier = 1.4;
+    double slider_tick_rate = 1.0;
 };
 
 struct event_background {
     std::string filename;
-    int x_offset = 0;
-    int y_offset = 0;
+    int32_t x_offset = 0;
+    int32_t y_offset = 0;
 };
 
 struct event_video {
     std::string filename;
-    int start_time = 0;
-    int x_offset = 0;
-    int y_offset = 0;
+    int32_t start_time = 0;
+    int32_t x_offset = 0;
+    int32_t y_offset = 0;
 };
 
 struct event_break {
-    int start_time = 0;
-    int end_time = 0;
+    int32_t start_time = 0;
+    int32_t end_time = 0;
 };
 
 struct timing_point {
-    int time = 0;
+    int32_t time = 0;
     double beat_length = 0.0;
-    int meter = 4;      // beats per measure
-    int sample_set = 0; // 0=default, 1=normal, 2=soft, 3=drum
-    int sample_index = 0;
-    int volume = 100;
-    int uninherited = 1; // 1=red line (BPM), 0=green line (SV)
-    int effects = 0;     // bit 0=kiai, bit 3=omit first barline
+    int32_t meter = 4;
+    int32_t sample_set = 0; // 0=default, 1=normal, 2=soft, 3=drum
+    int32_t sample_index = 0;
+    int32_t volume = 100;
+    int32_t uninherited = 1; // 1=red line (BPM), 0=green line (SV)
+    int32_t effects = 0;     // bit 0=kiai, bit 3=omit first barline
 };
 
 struct colour_section {
@@ -96,33 +98,33 @@ struct colour_section {
 };
 
 struct hit_sample {
-    int normal_set = 0;
-    int addition_set = 0;
-    int index = 0;
-    int volume = 0;
+    int32_t normal_set = 0;
+    int32_t addition_set = 0;
+    int32_t index = 0;
+    int32_t volume = 0;
     std::string filename;
 };
 
 struct hit_object {
-    int x = 0;    // 0-512 (playfield coords)
-    int y = 0;    // 0-384
-    int time = 0; // ms
-    int type = 0; // bitmask
-    int hit_sound = 0;
+    int32_t x = 0;    // 0-512 (playfield coords)
+    int32_t y = 0;    // 0-384
+    int32_t time = 0;
+    int32_t type = 0;
+    int32_t hit_sound = 0;
     hit_sample sample;
 
     char curve_type = 'L'; // B=bezier, C=catmull, L=linear, P=perfect circle
     std::vector<std::pair<int, int>> curve_points;
-    int slides = 1;      // repeat count + 1
-    double length = 0.0; // visual length in osu pixels
+    int32_t slides = 1;
+    double length = 0.0;
     std::vector<int> edge_sounds;
     std::vector<std::pair<int, int>> edge_sets;
 
-    int end_time = 0; // spinner/hold end time
+    int32_t end_time = 0;
 };
 
-struct osu_file_format {
-    int version = 14;
+struct osu_beatmap {
+    int32_t version = 14;
     general_section general;
     editor_section editor;
     metadata_section metadata;
@@ -135,7 +137,7 @@ struct osu_file_format {
     std::vector<hit_object> hit_objects;
 };
 
-inline const std::unordered_map<std::string, std::string>& get_key_to_section() {
+inline const std::unordered_map<std::string, std::string>& key_to_section() {
     static const std::unordered_map<std::string, std::string> map = {
         {"AudioFilename", "[General]"},
         {"AudioLeadIn", "[General]"},
@@ -181,6 +183,7 @@ inline const std::unordered_map<std::string, std::string>& get_key_to_section() 
         {"Video", "[Events]"},
         {"Storyboard", "[Events]"},
     };
+
     return map;
 }
 
@@ -188,3 +191,12 @@ inline const std::unordered_set<std::string>& get_special_keys() {
     static const std::unordered_set<std::string> set{"Background", "Video", "Storyboard"};
     return set;
 }
+
+struct beatmap_parser {
+    osu_beatmap* data;
+    std::string location;
+    std::vector<uint8_t> buffer;
+
+    bool parse(std::string location);
+    bool write();
+};
