@@ -1,6 +1,6 @@
 #include "osdb.hpp"
 
-#include "binary/binary.hpp"
+#include "utils/binary.hpp"
 
 bool osdb_parser::parse(std::string location) {
     if (data == nullptr) {

@@ -1,6 +1,6 @@
 #include "beatmap.hpp"
 
-#include "binary/binary.hpp"
+#include "utils/binary.hpp"
 
 bool beatmap_parser::parse(std::string location) {
     if (data == nullptr) {

@@ -4,28 +4,28 @@
 #include "parser/parser_base.hpp"
 
 namespace osu_bindings {
-using osu_collection_db_instance = parser_base<osu_collection_db, osu_collection_db_parser>;
+    using osu_collection_db_instance = parser_base<osu_collection_db, osu_collection_db_parser>;
 
-Napi::Value create_osu_collection_db_parser(const Napi::CallbackInfo& info) {
-    return create_instance<osu_collection_db_instance>(info);
-}
+    Napi::Value create_osu_collection_db_parser(const Napi::CallbackInfo& info) {
+        return create_instance<osu_collection_db_instance>(info);
+    }
 
-Napi::Value free_osu_collection_db_parser(const Napi::CallbackInfo& info) {
-    return free_instance<osu_collection_db_instance>(info);
-}
+    Napi::Value free_osu_collection_db_parser(const Napi::CallbackInfo& info) {
+        return free_instance<osu_collection_db_instance>(info);
+    }
 
-Napi::Value osu_collection_db_parser_parse(const Napi::CallbackInfo& info) {
-    return parse_instance<osu_collection_db_instance>(info);
-}
+    Napi::Value osu_collection_db_parser_parse(const Napi::CallbackInfo& info) {
+        return parse_instance<osu_collection_db_instance>(info);
+    }
 
-Napi::Value osu_collection_db_parser_write(const Napi::CallbackInfo& info) {
-    return write_instance<osu_collection_db_instance>(info);
-}
+    Napi::Value osu_collection_db_parser_write(const Napi::CallbackInfo& info) {
+        return write_instance<osu_collection_db_instance>(info);
+    }
 
-void register_collection_db(Napi::Env env, Napi::Object exports) {
-    exports.Set("create_osu_collection_db_parser", Napi::Function::New(env, create_osu_collection_db_parser));
-    exports.Set("free_osu_collection_db_parser", Napi::Function::New(env, free_osu_collection_db_parser));
-    exports.Set("osu_collection_db_parser_parse", Napi::Function::New(env, osu_collection_db_parser_parse));
-    exports.Set("osu_collection_db_parser_write", Napi::Function::New(env, osu_collection_db_parser_write));
-}
+    void register_collection_db(Napi::Env env, Napi::Object exports) {
+        exports.Set("create_osu_collection_db_parser", Napi::Function::New(env, create_osu_collection_db_parser));
+        exports.Set("free_osu_collection_db_parser", Napi::Function::New(env, free_osu_collection_db_parser));
+        exports.Set("osu_collection_db_parser_parse", Napi::Function::New(env, osu_collection_db_parser_parse));
+        exports.Set("osu_collection_db_parser_write", Napi::Function::New(env, osu_collection_db_parser_write));
+    }
 }

@@ -2,8 +2,7 @@
 
 #include <string>
 
-template <typename DataT, typename ParserT>
-struct parser_base {
+template <typename DataT, typename ParserT> struct parser_base {
     DataT data;
     ParserT parser;
 

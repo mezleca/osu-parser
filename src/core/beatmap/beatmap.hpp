@@ -17,10 +17,10 @@ struct general_section {
     int32_t audio_lead_in = 0;
     std::string audio_hash; // deprecated
     int32_t preview_time = -1;
-    int32_t countdown = 1;      // 0=none, 1=normal, 2=half, 3=double
+    int32_t countdown = 1; // 0=none, 1=normal, 2=half, 3=double
     std::string sample_set = "Normal";
     double stack_leniency = 0.7;
-    int32_t mode = 0;                // 0=std, 1=taiko, 2=ctb, 3=mania
+    int32_t mode = 0; // 0=std, 1=taiko, 2=ctb, 3=mania
     int32_t letterbox_in_breaks = 0;
     int32_t story_fire_in_front = 1; // deprecated
     int32_t use_skin_sprites = 0;
@@ -108,8 +108,8 @@ struct hit_sample {
 };
 
 struct hit_object {
-    int32_t x = 0;    // 0-512 (playfield coords)
-    int32_t y = 0;    // 0-384
+    int32_t x = 0; // 0-512 (playfield coords)
+    int32_t y = 0; // 0-384
     int32_t time = 0;
     int32_t type = 0;
     int32_t hit_sound = 0;

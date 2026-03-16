@@ -10,6 +10,7 @@
         "compile:tsc": "tsc",
         "build": "bun scripts/build.ts native && tsc",
         "format": "prettier --write . --ignore-unknown",
+        "format:clang": "clang-format -i $(rg --files -g '*.{h,hpp,cpp,cc,cxx}' src)",
         "example": "bun run examples/basic.ts"
     },
     "files": [
