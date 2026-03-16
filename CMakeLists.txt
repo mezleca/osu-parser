@@ -14,24 +14,33 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 set(CORE_SOURCES
-    "src/binary/binary.cpp"
-    "src/beatmap/beatmap.cpp"
-    "src/osdb/osdb.cpp"
-    "src/osu/osu.cpp"
+    "src/core/binary/binary.cpp"
+    "src/core/beatmap/beatmap.cpp"
+    "src/core/osdb/osdb.cpp"
+    "src/core/osu/osu.cpp"
 )
 
 set(CORE_HEADERS
-    "src/binary/binary.hpp"
-    "src/beatmap/beatmap.hpp"
-    "src/osdb/osdb.hpp"
-    "src/osu/osu.hpp"
+    "src/core/binary/binary.hpp"
+    "src/core/beatmap/beatmap.hpp"
+    "src/core/osdb/osdb.hpp"
+    "src/core/osu/osu.hpp"
+    "src/core/parser/parser_base.hpp"
 )
 
 add_library(osu_parser_core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
-target_include_directories(osu_parser_core PUBLIC "src")
+target_include_directories(osu_parser_core PUBLIC "src/core")
 set_target_properties(osu_parser_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 add_library(osu_parser SHARED "src/native/addon.cpp" ${CMAKE_JS_SRC})
+target_sources(osu_parser PRIVATE
+    "src/native/bindings/beatmap.cpp"
+    "src/native/bindings/osu_db.cpp"
+    "src/native/bindings/collection_db.cpp"
+    "src/native/bindings/scores_db.cpp"
+    "src/native/bindings/replay.cpp"
+    "src/native/bindings/osdb.cpp"
+)
 set_target_properties(osu_parser PROPERTIES PREFIX "" SUFFIX ".node" OUTPUT_NAME "osu-parser")
 
 execute_process(
@@ -43,7 +52,7 @@ execute_process(
 
 string(REPLACE "\"" "" NODE_ADDON_API_DIR ${NODE_ADDON_API_DIR})
 
-target_include_directories(osu_parser PRIVATE ${NODE_ADDON_API_DIR} ${CMAKE_JS_INC} "src")
+target_include_directories(osu_parser PRIVATE ${NODE_ADDON_API_DIR} ${CMAKE_JS_INC} "src" "src/core")
 target_link_libraries(osu_parser osu_parser_core ${CMAKE_JS_LIB})
 target_compile_definitions(osu_parser PRIVATE NODE_ADDON_API_CPP_EXCEPTIONS)
 

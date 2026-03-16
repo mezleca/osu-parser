@@ -1,6 +1,6 @@
 #include "osu.hpp"
 
-#include "../binary/binary.hpp"
+#include "binary/binary.hpp"
 
 bool osu_db_parser::parse(std::string location) {
     if (data == nullptr) {

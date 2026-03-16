@@ -23,7 +23,7 @@ const print_handles = () => {
         replay: replay.ptr,
         osdb: osdb.ptr
     });
-}
+};
 
 console.log("created handles:");
 print_handles();

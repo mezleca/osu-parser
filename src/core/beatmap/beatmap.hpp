@@ -8,8 +8,10 @@
 #include <unordered_set>
 #include <vector>
 
+// === enums ===
 enum OSU_SECTIONS { General = 0, Editor, Metadata, Difficulty, Events, TimingPoints, Colours, HitObjects };
 
+// === sections ===
 struct general_section {
     std::string audio_filename;
     int32_t audio_lead_in = 0;
@@ -123,6 +125,7 @@ struct hit_object {
     int32_t end_time = 0;
 };
 
+// === data ===
 struct osu_beatmap {
     int32_t version = 14;
     general_section general;
@@ -137,6 +140,7 @@ struct osu_beatmap {
     std::vector<hit_object> hit_objects;
 };
 
+// === helpers ===
 inline const std::unordered_map<std::string, std::string>& key_to_section() {
     static const std::unordered_map<std::string, std::string> map = {
         {"AudioFilename", "[General]"},
@@ -192,6 +196,7 @@ inline const std::unordered_set<std::string>& get_special_keys() {
     return set;
 }
 
+// === parser ===
 struct beatmap_parser {
     osu_beatmap* data;
     std::string location;

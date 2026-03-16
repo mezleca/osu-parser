@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 
+// === data ===
 struct osdb_beatmap {
     int32_t difficulty_id;
     int32_t beatmapset_id;
@@ -30,6 +31,7 @@ struct osdb_data {
     std::vector<osdb_collection> collections;
 };
 
+// === parser ===
 struct osdb_parser {
     osdb_data* data;
     std::string location;

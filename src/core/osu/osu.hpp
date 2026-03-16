@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 
+// === shared ===
 struct osu_int_float_pair {
     int32_t mod_combination = 0;
     double star_rating = 0.0;
@@ -16,6 +17,7 @@ struct osu_db_timing_point {
     int32_t inherited = 0;
 };
 
+// === osu!.db ===
 struct osu_db_beatmap {
     std::optional<int32_t> entry_size;
     std::string artist;
@@ -86,6 +88,7 @@ struct osu_legacy_database {
     std::vector<uint8_t> buffer;
 };
 
+// === collection.db ===
 struct osu_collection {
     std::string name;
     int32_t beatmaps_count = 0;
@@ -99,6 +102,7 @@ struct osu_collection_db {
     std::vector<uint8_t> buffer;
 };
 
+// === scores.db ===
 struct osu_score {
     int32_t mode = 0;
     int32_t version = 0;
@@ -136,6 +140,7 @@ struct osu_scores_db {
     std::vector<uint8_t> buffer;
 };
 
+// === replay (.osr) ===
 struct osu_replay {
     int32_t mode = 0;
     int32_t version = 0;
@@ -161,6 +166,7 @@ struct osu_replay {
     std::vector<uint8_t> buffer;
 };
 
+// === parsers ===
 struct osu_db_parser {
     osu_legacy_database* data;
     std::string location;
