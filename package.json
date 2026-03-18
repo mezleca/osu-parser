@@ -1,7 +1,7 @@
 {
-    "name": "osu-parser",
+    "name": "@rel-packages/osu-parser",
     "version": "2.0.0",
-    "description": "@rel-packages/osu-parser",
+    "description": "osu parser",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "commonjs",
@@ -47,6 +47,6 @@
     "author": "mezleca",
     "license": "ISC",
     "repository": {
-        "url": "https://github.com/mezleca/osu-parser.git"
+        "url": "git+https://github.com/mezleca/osu-parser.git"
     }
 }
