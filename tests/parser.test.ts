@@ -306,7 +306,7 @@ describe("osu!.db parser", () => {
             const minimal = parser.get_minimal_by_md5(first.md5);
             expect(minimal?.md5).toBe(first.md5);
             expect(minimal?.beatmap_id).toBe(first.beatmap_id);
-            expect((minimal as any)?.difficulty_id).toBeUndefined();
+            expect(minimal?.difficulty_id).toBe(first.difficulty_id);
 
             const by_set = parser.get_by_beatmapset_id(first.beatmap_id);
             expect(by_set.length).toBeGreaterThan(0);
