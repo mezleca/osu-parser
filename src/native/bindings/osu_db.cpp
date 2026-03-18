@@ -654,6 +654,88 @@ namespace osu_bindings {
         return Napi::Boolean::New(env, true);
     }
 
+    Napi::Value osu_db_parser_update_duration(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (info.Length() < 2 || !info[1].IsArray()) {
+            Napi::TypeError::New(env, "updates must be an array").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        Napi::Array arr = info[1].As<Napi::Array>();
+        std::vector<std::pair<std::string, std::optional<double>>> updates;
+        updates.reserve(arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+            if (!is_object(item)) {
+                Napi::TypeError::New(env, "invalid update").ThrowAsJavaScriptException();
+                return env.Undefined();
+            }
+
+            Napi::Object obj = item.As<Napi::Object>();
+            if (!obj.Has("md5") || !obj.Get("md5").IsString()) {
+                Napi::TypeError::New(env, "md5 is required").ThrowAsJavaScriptException();
+                return env.Undefined();
+            }
+
+            std::string md5 = obj.Get("md5").As<Napi::String>().Utf8Value();
+            std::optional<double> duration;
+
+            if (obj.Has("duration")) {
+                Napi::Value duration_val = obj.Get("duration");
+                if (duration_val.IsNull()) {
+                    duration.reset();
+                } else if (duration_val.IsNumber()) {
+                    duration = duration_val.As<Napi::Number>().DoubleValue();
+                } else {
+                    Napi::TypeError::New(env, "duration must be number or null").ThrowAsJavaScriptException();
+                    return env.Undefined();
+                }
+            } else {
+                duration.reset();
+            }
+
+            updates.emplace_back(std::move(md5), duration);
+        }
+
+        bool ok = instance->with_lock([&](osu_legacy_database& data, osu_db_parser& parser) {
+            std::unordered_map<std::string, osu_db_beatmap*> lookup;
+            lookup.reserve(data.beatmaps.size());
+
+            for (auto& beatmap : data.beatmaps) {
+                if (!beatmap.md5.empty()) {
+                    lookup.emplace(beatmap.md5, &beatmap);
+                }
+            }
+
+            for (const auto& update : updates) {
+                const auto it = lookup.find(update.first);
+                if (it == lookup.end()) {
+                    continue;
+                }
+                it->second->duration = update.second;
+            }
+
+            parser.last_error.clear();
+            return true;
+        });
+
+        if (!ok) {
+            std::string message = instance->parser.last_error.empty() ? "update failed" : instance->parser.last_error;
+            Napi::Error::New(env, message).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return Napi::Boolean::New(env, true);
+    }
+
     Napi::Value osu_db_parser_get_by_name(const Napi::CallbackInfo& info) {
         Napi::Env env = info.Env();
         osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
@@ -787,6 +869,7 @@ namespace osu_bindings {
         exports.Set("osu_db_parser_last_error", Napi::Function::New(env, osu_db_parser_last_error));
         exports.Set("osu_db_parser_get", Napi::Function::New(env, osu_db_parser_get));
         exports.Set("osu_db_parser_update", Napi::Function::New(env, osu_db_parser_update));
+        exports.Set("osu_db_parser_update_duration", Napi::Function::New(env, osu_db_parser_update_duration));
         exports.Set("osu_db_parser_get_by_name", Napi::Function::New(env, osu_db_parser_get_by_name));
         exports.Set("osu_db_parser_filter_by_properties", Napi::Function::New(env, osu_db_parser_filter_by_properties));
         exports.Set("osu_db_parser_filter_md5_by_properties",

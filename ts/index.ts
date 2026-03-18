@@ -43,7 +43,8 @@ const resolve_fns = (prefix: string) => {
             | undefined,
         filter_ids_by_properties: n[`${prefix}_filter_ids_by_properties`] as
             | ((handle: bigint, properties: unknown) => number[])
-            | undefined
+            | undefined,
+        update_duration: n[`${prefix}_update_duration`] as ((handle: bigint, updates: unknown) => boolean) | undefined
     };
 };
 
@@ -167,6 +168,15 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
             throw new Error(`${this.prefix}.filter_ids_by_properties not implemented`);
         }
         return this.fns.filter_ids_by_properties(this.handle, properties);
+    }
+
+    update_duration(updates: { md5: string; duration?: number | null }[]): boolean {
+        this.assert_handle();
+        const fn = (this.fns as any).update_duration as ((handle: bigint, updates: unknown) => boolean) | undefined;
+        if (!fn) {
+            throw new Error(`${this.prefix}.update_duration not implemented`);
+        }
+        return fn(this.handle, updates);
     }
 }
 
