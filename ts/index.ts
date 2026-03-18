@@ -39,6 +39,7 @@ const resolve_fns = (prefix: string) => {
         get_beatmaps_range: n[`${prefix}_get_beatmaps_range`] as
             | ((handle: bigint, start: number, count: number) => unknown)
             | undefined,
+        get_minimal_list: n[`${prefix}_get_minimal_list`] as ((handle: bigint) => unknown) | undefined,
         get_by_md5: n[`${prefix}_get_by_md5`] as ((handle: bigint, md5: string) => unknown) | undefined,
         get_minimal_by_md5: n[`${prefix}_get_minimal_by_md5`] as ((handle: bigint, md5: string) => unknown) | undefined,
         get_by_beatmapset_id: n[`${prefix}_get_by_beatmapset_id`] as
@@ -177,6 +178,15 @@ export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, Os
             throw new Error(`${this.prefix}.get_beatmaps_range not implemented`);
         }
         return fn(this.handle, start, count) as OsuDbBeatmap[];
+    }
+
+    get_minimal_list(): OsuDbBeatmapMinimal[] {
+        this.assert_handle();
+        const fn = (this.fns as any).get_minimal_list as ((handle: bigint) => unknown) | undefined;
+        if (!fn) {
+            throw new Error(`${this.prefix}.get_minimal_list not implemented`);
+        }
+        return fn(this.handle) as OsuDbBeatmapMinimal[];
     }
 
     get_by_md5(md5: string): OsuDbBeatmap | undefined {

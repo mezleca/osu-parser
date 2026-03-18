@@ -318,6 +318,22 @@ describe("osu!.db parser", () => {
         }
     });
 
+    test("get_minimal_list", async () => {
+        const parser = new OsuDbParser();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const list = parser.get_minimal_list();
+            expect(list.length).toBeGreaterThan(0);
+            expect(list[0].md5).toBeTruthy();
+            expect(list[0].beatmap_id).toBeDefined();
+            expect(list[0].bpm).toBeDefined();
+            expect(list[0].star_rating).toBeDefined();
+        } finally {
+            parser.free();
+        }
+    });
+
     test("update fields and arrays", async () => {
         const parser = new OsuDbParser();
         try {

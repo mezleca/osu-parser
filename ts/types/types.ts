@@ -276,9 +276,26 @@ export interface OsuDbBeatmap {
 export interface OsuDbBeatmapMinimal {
     md5: string;
     beatmap_id: number;
+    difficulty_id: number;
     title: string;
     artist: string;
     creator: string;
+    difficulty: string;
+    source: string;
+    tags: string;
+    mode: number;
+    ranked_status: number;
+    total_time: number;
+    duration: number | null;
+    last_modification_time: bigint;
+    approach_rate: number;
+    circle_size: number;
+    hp_drain: number;
+    overall_difficulty: number;
+    bpm: number;
+    star_rating: number;
+    folder_name: string;
+    osu_file_name: string;
 }
 
 export interface OsuLegacyDatabase {
@@ -447,6 +464,7 @@ export interface NativeBindings {
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
     osu_db_parser_get_header(handle: bigint): Omit<OsuLegacyDatabase, "beatmaps">;
     osu_db_parser_get_beatmaps_range(handle: bigint, start: number, count: number): OsuDbBeatmap[];
+    osu_db_parser_get_minimal_list(handle: bigint): OsuDbBeatmapMinimal[];
     osu_db_parser_get_by_md5(handle: bigint, md5: string): OsuDbBeatmap | undefined;
     osu_db_parser_get_minimal_by_md5(handle: bigint, md5: string): OsuDbBeatmapMinimal | undefined;
     osu_db_parser_get_by_beatmapset_id(handle: bigint, beatmapset_id: number): OsuDbBeatmap[];

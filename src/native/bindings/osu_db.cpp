@@ -530,11 +530,63 @@ namespace osu_bindings {
 
     Napi::Object beatmap_minimal_to_js(Napi::Env& env, const osu_db_beatmap& beatmap) {
         Napi::Object obj = Napi::Object::New(env);
+        double star_rating = 0.0;
+        if (!beatmap.star_rating_standard.empty()) {
+            star_rating = beatmap.star_rating_standard[0].star_rating;
+        }
+
+        const auto pick_nomod = [](const std::vector<osu_int_float_pair>& ratings) -> double {
+            for (const auto& rating : ratings) {
+                if (rating.mod_combination == 0) {
+                    return rating.star_rating;
+                }
+            }
+            if (!ratings.empty()) {
+                return ratings[0].star_rating;
+            }
+            return 0.0;
+        };
+
+        switch (beatmap.mode) {
+            case 1:
+                star_rating = pick_nomod(beatmap.star_rating_taiko);
+                break;
+            case 2:
+                star_rating = pick_nomod(beatmap.star_rating_ctb);
+                break;
+            case 3:
+                star_rating = pick_nomod(beatmap.star_rating_mania);
+                break;
+            case 0:
+            default:
+                star_rating = pick_nomod(beatmap.star_rating_standard);
+                break;
+        }
+
+        const double bpm = osu_filter::get_common_bpm(beatmap.timing_points, beatmap.total_time);
+
         obj.Set("md5", beatmap.md5);
         obj.Set("beatmap_id", beatmap.beatmap_id);
+        obj.Set("difficulty_id", beatmap.difficulty_id);
         obj.Set("title", beatmap.title);
         obj.Set("artist", beatmap.artist);
         obj.Set("creator", beatmap.creator);
+        obj.Set("difficulty", beatmap.difficulty);
+        obj.Set("source", beatmap.source);
+        obj.Set("tags", beatmap.tags);
+        obj.Set("mode", beatmap.mode);
+        obj.Set("ranked_status", beatmap.ranked_status);
+        obj.Set("total_time", beatmap.total_time);
+        obj.Set("duration", optional_double_to_js(env, beatmap.duration));
+        obj.Set("last_modification_time", Napi::BigInt::New(env, beatmap.last_modification_time));
+        obj.Set("approach_rate", beatmap.approach_rate);
+        obj.Set("circle_size", beatmap.circle_size);
+        obj.Set("hp_drain", beatmap.hp_drain);
+        obj.Set("overall_difficulty", beatmap.overall_difficulty);
+        obj.Set("bpm", bpm);
+        obj.Set("star_rating", star_rating);
+        obj.Set("folder_name", beatmap.folder_name);
+        obj.Set("osu_file_name", beatmap.osu_file_name);
         return obj;
     }
 
@@ -649,6 +701,24 @@ namespace osu_bindings {
                 result.Set(static_cast<uint32_t>(index++), beatmap_to_js(env, data.beatmaps[i]));
             }
 
+            return result;
+        });
+    }
+
+    Napi::Value osu_db_parser_get_minimal_list(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
+            Napi::Array result = Napi::Array::New(env, data.beatmaps.size());
+            for (size_t i = 0; i < data.beatmaps.size(); i++) {
+                result.Set(static_cast<uint32_t>(i), beatmap_minimal_to_js(env, data.beatmaps[i]));
+            }
             return result;
         });
     }
@@ -1024,6 +1094,7 @@ namespace osu_bindings {
         exports.Set("osu_db_parser_get", Napi::Function::New(env, osu_db_parser_get));
         exports.Set("osu_db_parser_get_header", Napi::Function::New(env, osu_db_parser_get_header));
         exports.Set("osu_db_parser_get_beatmaps_range", Napi::Function::New(env, osu_db_parser_get_beatmaps_range));
+        exports.Set("osu_db_parser_get_minimal_list", Napi::Function::New(env, osu_db_parser_get_minimal_list));
         exports.Set("osu_db_parser_get_by_md5", Napi::Function::New(env, osu_db_parser_get_by_md5));
         exports.Set("osu_db_parser_get_minimal_by_md5", Napi::Function::New(env, osu_db_parser_get_minimal_by_md5));
         exports.Set("osu_db_parser_get_by_beatmapset_id", Napi::Function::New(env, osu_db_parser_get_by_beatmapset_id));
