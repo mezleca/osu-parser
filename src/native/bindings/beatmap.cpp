@@ -3,6 +3,8 @@
 #include "beatmap/beatmap.hpp"
 #include "parser/parser_base.hpp"
 
+#include <iostream>
+
 namespace osu_bindings {
     using beatmap_instance = parser_base<osu_beatmap, beatmap_parser>;
 
@@ -294,6 +296,7 @@ namespace osu_bindings {
             return env.Null();
         }
 
+        std::cerr << "[beatmap] get() version: " << instance->data.version << "\n";
         return beatmap_to_js(env, instance->data);
     }
 
