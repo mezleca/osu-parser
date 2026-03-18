@@ -33,45 +33,12 @@ namespace osu_bindings {
             return false;
         }
 
-        if (patch.Has("beatmaps")) {
-            Napi::Value value = patch.Get("beatmaps");
-            if (!value.IsArray()) {
-                err = "beatmaps must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osdb_beatmap> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osdb_beatmap item{};
-                if (!parse_osdb_beatmap(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            collection.beatmaps = std::move(next);
+        if (!update_array_field(patch, "beatmaps", collection.beatmaps, parse_osdb_beatmap, err)) {
+            return false;
         }
 
-        if (patch.Has("hash_only_beatmaps")) {
-            Napi::Value value = patch.Get("hash_only_beatmaps");
-            auto parse_hash = [](const Napi::Value& v, std::string& out, std::string& err) {
-                return parse_string_value(v, out, err);
-            };
-            if (!value.IsArray()) {
-                err = "hash_only_beatmaps must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<std::string> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                std::string item;
-                if (!parse_hash(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            collection.hash_only_beatmaps = std::move(next);
+        if (!update_string_array_field(patch, "hash_only_beatmaps", collection.hash_only_beatmaps, err)) {
+            return false;
         }
 
         return true;
@@ -217,24 +184,9 @@ namespace osu_bindings {
                 return false;
             }
 
-            if (patch.Has("collections")) {
-                Napi::Value value = patch.Get("collections");
-                if (!value.IsArray()) {
-                    parser.last_error = "collections must be an array";
-                    return false;
-                }
-                Napi::Array arr = value.As<Napi::Array>();
-                std::vector<osdb_collection> next;
-                next.reserve(arr.Length());
-                for (uint32_t i = 0; i < arr.Length(); i++) {
-                    osdb_collection item{};
-                    if (!parse_osdb_collection(arr.Get(i), item, err)) {
-                        parser.last_error = err;
-                        return false;
-                    }
-                    next.push_back(std::move(item));
-                }
-                temp.collections = std::move(next);
+            if (!update_array_field(patch, "collections", temp.collections, parse_osdb_collection, err)) {
+                parser.last_error = err;
+                return false;
             }
 
             temp.count = static_cast<int32_t>(temp.collections.size());

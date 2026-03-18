@@ -35,7 +35,16 @@ jobs:
               if: runner.os == 'Windows'
               uses: ilammy/msvc-dev-cmd@v1
 
+            - name: cache LLVM
+              if: runner.os == 'Windows'
+              id: cache-llvm
+              uses: actions/cache@v4
+              with:
+                  path: C:\Program Files\LLVM
+                  key: ${{ runner.os }}-llvm-20.1.0
+
             - name: install LLVM and Clang
+              if: runner.os == 'Windows' && steps.cache-llvm.outputs.cache-hit != 'true'
               uses: KyleMayes/install-llvm-action@v2
               with:
                   version: "20.1.0"

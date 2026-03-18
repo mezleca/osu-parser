@@ -59,7 +59,7 @@ const main = async () => {
     const EXEC_ARGS = process.argv.slice(2);
     const BUILD_GOAL = EXEC_ARGS[0] || "native";
 
-    if (fs.existsSync(TARGET_DIR) == false) {
+    if (!fs.existsSync(TARGET_DIR)) {
         fs.mkdirSync(TARGET_DIR);
     }
 

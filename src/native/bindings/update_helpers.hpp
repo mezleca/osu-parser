@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <napi.h>
 #include <string>
+#include <vector>
 
 namespace osu_bindings {
     inline bool is_object(const Napi::Value& value) {
@@ -126,5 +127,40 @@ namespace osu_bindings {
 
         out = value.As<Napi::Number>().Int32Value();
         return true;
+    }
+
+    template <typename T, typename ParseFn>
+    bool update_array_field(const Napi::Object& obj, const char* key, std::vector<T>& out, ParseFn parse_fn,
+                            std::string& err) {
+        if (!obj.Has(key)) {
+            return true;
+        }
+
+        Napi::Value value = obj.Get(key);
+
+        if (!value.IsArray()) {
+            err = std::string(key) + " must be an array";
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+        std::vector<T> next;
+        next.reserve(arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            T item{};
+            if (!parse_fn(arr.Get(i), item, err)) {
+                return false;
+            }
+            next.push_back(std::move(item));
+        }
+
+        out = std::move(next);
+        return true;
+    }
+
+    inline bool update_string_array_field(const Napi::Object& obj, const char* key, std::vector<std::string>& out,
+                                          std::string& err) {
+        return update_array_field<std::string>(obj, key, out, parse_string_value, err);
     }
 }

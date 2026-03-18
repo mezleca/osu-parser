@@ -817,45 +817,15 @@ namespace osu_bindings {
                     }
                 }
 
-                if (events.Has("breaks")) {
-                    Napi::Value breaks_value = events.Get("breaks");
-                    if (!breaks_value.IsArray()) {
-                        parser.last_error = "Events.breaks must be an array";
-                        return false;
-                    }
-                    Napi::Array arr = breaks_value.As<Napi::Array>();
-                    std::vector<event_break> next;
-                    next.reserve(arr.Length());
-                    for (uint32_t i = 0; i < arr.Length(); i++) {
-                        event_break item{};
-                        if (!parse_event_break(arr.Get(i), item, err)) {
-                            parser.last_error = err;
-                            return false;
-                        }
-                        next.push_back(std::move(item));
-                    }
-                    temp.breaks = std::move(next);
+                if (!update_array_field(events, "breaks", temp.breaks, parse_event_break, err)) {
+                    parser.last_error = err;
+                    return false;
                 }
             }
 
-            if (patch.Has("TimingPoints")) {
-                Napi::Value value = patch.Get("TimingPoints");
-                if (!value.IsArray()) {
-                    parser.last_error = "TimingPoints must be an array";
-                    return false;
-                }
-                Napi::Array arr = value.As<Napi::Array>();
-                std::vector<timing_point> next;
-                next.reserve(arr.Length());
-                for (uint32_t i = 0; i < arr.Length(); i++) {
-                    timing_point item{};
-                    if (!parse_timing_point(arr.Get(i), item, err)) {
-                        parser.last_error = err;
-                        return false;
-                    }
-                    next.push_back(std::move(item));
-                }
-                temp.timing_points = std::move(next);
+            if (!update_array_field(patch, "TimingPoints", temp.timing_points, parse_timing_point, err)) {
+                parser.last_error = err;
+                return false;
             }
 
             if (patch.Has("Colours")) {
@@ -866,27 +836,9 @@ namespace osu_bindings {
                 }
                 Napi::Object colours = value.As<Napi::Object>();
 
-                if (colours.Has("Combos")) {
-                    Napi::Value combos_value = colours.Get("Combos");
-                    auto parse_combo = [](const Napi::Value& v, std::array<int, 3>& out, std::string& err) {
-                        return parse_color(v, out, err);
-                    };
-                    if (!combos_value.IsArray()) {
-                        parser.last_error = "Colours.Combos must be an array";
-                        return false;
-                    }
-                    Napi::Array arr = combos_value.As<Napi::Array>();
-                    std::vector<std::array<int, 3>> next;
-                    next.reserve(arr.Length());
-                    for (uint32_t i = 0; i < arr.Length(); i++) {
-                        std::array<int, 3> item{};
-                        if (!parse_combo(arr.Get(i), item, err)) {
-                            parser.last_error = err;
-                            return false;
-                        }
-                        next.push_back(item);
-                    }
-                    temp.colours.combos = std::move(next);
+                if (!update_array_field(colours, "Combos", temp.colours.combos, parse_color, err)) {
+                    parser.last_error = err;
+                    return false;
                 }
 
                 if (colours.Has("SliderTrackOverride")) {
@@ -918,24 +870,9 @@ namespace osu_bindings {
                 }
             }
 
-            if (patch.Has("HitObjects")) {
-                Napi::Value value = patch.Get("HitObjects");
-                if (!value.IsArray()) {
-                    parser.last_error = "HitObjects must be an array";
-                    return false;
-                }
-                Napi::Array arr = value.As<Napi::Array>();
-                std::vector<hit_object> next;
-                next.reserve(arr.Length());
-                for (uint32_t i = 0; i < arr.Length(); i++) {
-                    hit_object item{};
-                    if (!parse_hit_object(arr.Get(i), item, err)) {
-                        parser.last_error = err;
-                        return false;
-                    }
-                    next.push_back(std::move(item));
-                }
-                temp.hit_objects = std::move(next);
+            if (!update_array_field(patch, "HitObjects", temp.hit_objects, parse_hit_object, err)) {
+                parser.last_error = err;
+                return false;
             }
 
             data = std::move(temp);

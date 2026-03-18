@@ -114,99 +114,13 @@ namespace osu_bindings {
         OSU_DB_BEATMAP_FIELDS_DOUBLE(APPLY_FIELD)
 #undef APPLY_FIELD
 
-        if (patch.Has("star_rating_standard")) {
-            Napi::Value value = patch.Get("star_rating_standard");
-            if (!value.IsArray()) {
-                err = "star_rating_standard must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osu_int_float_pair> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osu_int_float_pair item{};
-                if (!parse_int_float_pair(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            beatmap.star_rating_standard = std::move(next);
-        }
-
-        if (patch.Has("star_rating_taiko")) {
-            Napi::Value value = patch.Get("star_rating_taiko");
-            if (!value.IsArray()) {
-                err = "star_rating_taiko must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osu_int_float_pair> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osu_int_float_pair item{};
-                if (!parse_int_float_pair(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            beatmap.star_rating_taiko = std::move(next);
-        }
-
-        if (patch.Has("star_rating_ctb")) {
-            Napi::Value value = patch.Get("star_rating_ctb");
-            if (!value.IsArray()) {
-                err = "star_rating_ctb must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osu_int_float_pair> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osu_int_float_pair item{};
-                if (!parse_int_float_pair(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            beatmap.star_rating_ctb = std::move(next);
-        }
-
-        if (patch.Has("star_rating_mania")) {
-            Napi::Value value = patch.Get("star_rating_mania");
-            if (!value.IsArray()) {
-                err = "star_rating_mania must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osu_int_float_pair> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osu_int_float_pair item{};
-                if (!parse_int_float_pair(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            beatmap.star_rating_mania = std::move(next);
-        }
-
-        if (patch.Has("timing_points")) {
-            Napi::Value value = patch.Get("timing_points");
-            if (!value.IsArray()) {
-                err = "timing_points must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<osu_db_timing_point> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                osu_db_timing_point item{};
-                if (!parse_db_timing_point(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            beatmap.timing_points = std::move(next);
+        if (!update_array_field(patch, "star_rating_standard", beatmap.star_rating_standard, parse_int_float_pair,
+                                err) ||
+            !update_array_field(patch, "star_rating_taiko", beatmap.star_rating_taiko, parse_int_float_pair, err) ||
+            !update_array_field(patch, "star_rating_ctb", beatmap.star_rating_ctb, parse_int_float_pair, err) ||
+            !update_array_field(patch, "star_rating_mania", beatmap.star_rating_mania, parse_int_float_pair, err) ||
+            !update_array_field(patch, "timing_points", beatmap.timing_points, parse_db_timing_point, err)) {
+            return false;
         }
 
         if (patch.Has("unknown")) {
@@ -220,6 +134,7 @@ namespace osu_bindings {
                 return false;
             }
         }
+
         return true;
     }
 
@@ -247,7 +162,7 @@ namespace osu_bindings {
         return obj;
     }
 
-    Napi::Object timing_point_to_js(Napi::Env& env, const osu_db_timing_point& point) {
+    Napi::Object db_timing_point_to_js(Napi::Env& env, const osu_db_timing_point& point) {
         Napi::Object obj = Napi::Object::New(env);
 
         obj.Set("bpm", point.bpm);
@@ -317,7 +232,7 @@ namespace osu_bindings {
         Napi::Array timing_points = Napi::Array::New(env, beatmap.timing_points.size());
 
         for (size_t i = 0; i < beatmap.timing_points.size(); i++) {
-            timing_points.Set(static_cast<uint32_t>(i), timing_point_to_js(env, beatmap.timing_points[i]));
+            timing_points.Set(static_cast<uint32_t>(i), db_timing_point_to_js(env, beatmap.timing_points[i]));
         }
 
         obj.Set("timing_points", timing_points);
@@ -448,36 +363,23 @@ namespace osu_bindings {
         std::string err;
         bool ok = instance->with_lock([&](osu_legacy_database& data, osu_db_parser& parser) {
             Napi::Object patch = info[1].As<Napi::Object>();
+            osu_legacy_database temp = data;
 
 #define APPLY_FIELD(fn, key, member)                                                                                   \
-    if (!fn(patch, key, data.member, err)) {                                                                           \
+    if (!fn(patch, key, temp.member, err)) {                                                                           \
         parser.last_error = err;                                                                                       \
         return false;                                                                                                  \
     }
             OSU_DB_FIELDS(APPLY_FIELD)
 #undef APPLY_FIELD
 
-            if (patch.Has("beatmaps")) {
-                Napi::Value value = patch.Get("beatmaps");
-                if (!value.IsArray()) {
-                    parser.last_error = "beatmaps must be an array";
-                    return false;
-                }
-                Napi::Array arr = value.As<Napi::Array>();
-                std::vector<osu_db_beatmap> next;
-                next.reserve(arr.Length());
-                for (uint32_t i = 0; i < arr.Length(); i++) {
-                    osu_db_beatmap item{};
-                    if (!parse_osu_db_beatmap(arr.Get(i), item, err)) {
-                        parser.last_error = err;
-                        return false;
-                    }
-                    next.push_back(std::move(item));
-                }
-                data.beatmaps = std::move(next);
+            if (!update_array_field(patch, "beatmaps", temp.beatmaps, parse_osu_db_beatmap, err)) {
+                parser.last_error = err;
+                return false;
             }
 
-            data.beatmaps_count = static_cast<int32_t>(data.beatmaps.size());
+            temp.beatmaps_count = static_cast<int32_t>(temp.beatmaps.size());
+            data = std::move(temp);
             parser.last_error.clear();
             return true;
         });

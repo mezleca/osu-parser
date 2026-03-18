@@ -17,31 +17,14 @@ namespace osu_bindings {
             return false;
         }
 
-        if (patch.Has("beatmap_md5")) {
-            Napi::Value value = patch.Get("beatmap_md5");
-            auto parse_md5 = [](const Napi::Value& v, std::string& out, std::string& err) {
-                return parse_string_value(v, out, err);
-            };
-            if (!value.IsArray()) {
-                err = "beatmap_md5 must be an array";
-                return false;
-            }
-            Napi::Array arr = value.As<Napi::Array>();
-            std::vector<std::string> next;
-            next.reserve(arr.Length());
-            for (uint32_t i = 0; i < arr.Length(); i++) {
-                std::string item;
-                if (!parse_md5(arr.Get(i), item, err)) {
-                    return false;
-                }
-                next.push_back(std::move(item));
-            }
-            collection.beatmap_md5 = std::move(next);
+        if (!update_string_array_field(patch, "beatmap_md5", collection.beatmap_md5, err)) {
+            return false;
         }
 
         if (!has_count) {
             collection.beatmaps_count = static_cast<int32_t>(collection.beatmap_md5.size());
         }
+
         return true;
     }
 
@@ -152,38 +135,25 @@ namespace osu_bindings {
 
         bool ok = instance->with_lock([&](osu_collection_db& data, osu_collection_db_parser& parser) {
             Napi::Object patch = info[1].As<Napi::Object>();
+            osu_collection_db temp = data;
 
-            if (!get_optional_int32(patch, "version", data.version, err)) {
+            if (!get_optional_int32(patch, "version", temp.version, err)) {
                 parser.last_error = err;
                 return false;
             }
 
-            if (patch.Has("collections")) {
-                Napi::Value value = patch.Get("collections");
-                if (!value.IsArray()) {
-                    parser.last_error = "collections must be an array";
-                    return false;
-                }
-                Napi::Array arr = value.As<Napi::Array>();
-                std::vector<osu_collection> next;
-                next.reserve(arr.Length());
-                for (uint32_t i = 0; i < arr.Length(); i++) {
-                    osu_collection item{};
-                    if (!parse_collection(arr.Get(i), item, err)) {
-                        parser.last_error = err;
-                        return false;
-                    }
-                    next.push_back(std::move(item));
-                }
-                data.collections = std::move(next);
+            if (!update_array_field(patch, "collections", temp.collections, parse_collection, err)) {
+                parser.last_error = err;
+                return false;
             }
 
-            data.collections_count = static_cast<int32_t>(data.collections.size());
+            temp.collections_count = static_cast<int32_t>(temp.collections.size());
 
-            for (auto& collection : data.collections) {
+            for (auto& collection : temp.collections) {
                 collection.beatmaps_count = static_cast<int32_t>(collection.beatmap_md5.size());
             }
 
+            data = std::move(temp);
             parser.last_error.clear();
             return true;
         });

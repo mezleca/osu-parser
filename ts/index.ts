@@ -16,33 +16,69 @@ import {
     OsuScoresDb
 } from "./types/types";
 
-type ParserCoreFns<TGet> = {
-    name: string;
-    create: () => bigint;
-    free: (handle: bigint) => void;
-    parse: (handle: bigint, location: string) => Promise<boolean>;
-    write: (handle: bigint) => Promise<boolean>;
-    get: (handle: bigint) => TGet;
-    last_error: (handle: bigint) => string | null;
+const resolve_fns = (prefix: string) => {
+    const n = native as Record<string, any>;
+
+    return {
+        create: n[`create_${prefix}`] as () => bigint,
+        free: n[`free_${prefix}`] as (handle: bigint) => void,
+        parse: n[`${prefix}_parse`] as (handle: bigint, location: string) => Promise<boolean>,
+        write: n[`${prefix}_write`] as (handle: bigint) => Promise<boolean>,
+        get: n[`${prefix}_get`] as (handle: bigint) => unknown,
+        last_error: n[`${prefix}_last_error`] as (handle: bigint) => string | null,
+        get_by_name: n[`${prefix}_get_by_name`] as ((handle: bigint, key: string) => unknown) | undefined,
+        update: n[`${prefix}_update`] as ((handle: bigint, patch: unknown) => boolean) | undefined
+    };
 };
 
-type ParserUpdateFns<TGet, TKey extends string, TUpdate> = ParserCoreFns<TGet> & {
-    getByName: (handle: bigint, key: TKey) => unknown;
-    update: (handle: bigint, patch: TUpdate) => boolean;
-};
-
-class BaseParser {
+class Parser<TGet> {
     protected handle: bigint;
+    protected prefix: string;
+    protected fns: ReturnType<typeof resolve_fns>;
 
-    constructor(handle: bigint) {
-        this.handle = handle;
+    constructor(prefix: string) {
+        this.prefix = prefix;
+        this.fns = resolve_fns(prefix);
+        this.handle = this.fns.create();
     }
 
     get ptr(): bigint {
         return this.handle;
     }
 
-    protected clear_handle() {
+    async parse(location: string): Promise<this> {
+        this.assert_handle();
+        const ok = await this.fns.parse(this.handle, location);
+
+        if (!ok) {
+            const message = this.fns.last_error(this.handle);
+            throw new Error(message ? `${this.prefix}.parse failed: ${message}` : `${this.prefix}.parse failed`);
+        }
+
+        return this;
+    }
+
+    async write(): Promise<void> {
+        this.assert_handle();
+        const ok = await this.fns.write(this.handle);
+
+        if (!ok) {
+            throw new Error(`${this.prefix}.write failed`);
+        }
+    }
+
+    get(): TGet {
+        this.assert_handle();
+        return this.fns.get(this.handle) as TGet;
+    }
+
+    last_error(): string | null {
+        this.assert_handle();
+        return this.fns.last_error(this.handle);
+    }
+
+    free(): void {
+        this.fns.free(this.handle);
         this.handle = 0n;
     }
 
@@ -53,167 +89,56 @@ class BaseParser {
     }
 }
 
-class ParserBase<TGet> extends BaseParser {
-    protected fns: ParserCoreFns<TGet>;
-
-    constructor(fns: ParserCoreFns<TGet>) {
-        super(fns.create());
-        this.fns = fns;
-    }
-
-    async parse(location: string): Promise<this> {
-        this.assert_handle();
-        const ok = await this.fns.parse(this.handle, location);
-
-        if (!ok) {
-            const message = this.fns.last_error(this.handle);
-            throw new Error(message ? `${this.fns.name}.parse failed: ${message}` : `${this.fns.name}.parse failed`);
-        }
-
-        return this;
-    }
-
-    async write(): Promise<void> {
-        this.assert_handle();
-        const ok = await this.fns.write(this.handle);
-        if (!ok) {
-            throw new Error(`${this.fns.name}.write failed`);
-        }
-    }
-
-    get(): TGet {
-        this.assert_handle();
-        return this.fns.get(this.handle);
-    }
-
-    last_error(): string | null {
-        this.assert_handle();
-        return this.fns.last_error(this.handle);
-    }
-
-    free(): void {
-        this.fns.free(this.handle);
-        this.clear_handle();
-    }
-}
-
-class ParserWithUpdateAndGetByName<
-    TGet extends object,
-    TKey extends keyof TGet & string,
-    TUpdate
-> extends ParserBase<TGet> {
-    protected fns: ParserUpdateFns<TGet, TKey, TUpdate>;
-
-    constructor(fns: ParserUpdateFns<TGet, TKey, TUpdate>) {
-        super(fns);
-        this.fns = fns;
+class UpdatableParser<TGet extends object, TKey extends keyof TGet & string, TUpdate> extends Parser<TGet> {
+    constructor(prefix: string) {
+        super(prefix);
     }
 
     get_by_name<K extends TKey>(key: K): TGet[K] {
         this.assert_handle();
-        return this.fns.getByName(this.handle, key) as TGet[K];
+        return this.fns.get_by_name!(this.handle, key) as TGet[K];
     }
 
     update(patch: TUpdate): this {
         this.assert_handle();
-        this.fns.update(this.handle, patch);
+        this.fns.update!(this.handle, patch);
         return this;
     }
 }
 
-export class BeatmapParser extends ParserWithUpdateAndGetByName<OsuFileFormat, BeatmapKey, BeatmapUpdate> {
+export class BeatmapParser extends UpdatableParser<OsuFileFormat, BeatmapKey, BeatmapUpdate> {
     constructor() {
-        super({
-            name: "BeatmapParser",
-            create: native.create_beatmap_parser,
-            free: native.free_beatmap_parser,
-            parse: native.beatmap_parser_parse,
-            write: native.beatmap_parser_write,
-            get: native.beatmap_parser_get,
-            getByName: native.beatmap_parser_get_by_name,
-            update: native.beatmap_parser_update,
-            last_error: native.beatmap_parser_last_error
-        });
+        super("beatmap_parser");
     }
 }
 
-export class OsuDbParser extends ParserWithUpdateAndGetByName<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
+export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
     constructor() {
-        super({
-            name: "OsuDbParser",
-            create: native.create_osu_db_parser,
-            free: native.free_osu_db_parser,
-            parse: native.osu_db_parser_parse,
-            write: native.osu_db_parser_write,
-            get: native.osu_db_parser_get,
-            getByName: native.osu_db_parser_get_by_name,
-            update: native.osu_db_parser_update,
-            last_error: native.osu_db_parser_last_error
-        });
+        super("osu_db_parser");
     }
 }
 
-export class OsuCollectionDbParser extends ParserWithUpdateAndGetByName<
-    OsuCollectionDb,
-    OsuCollectionDbKey,
-    OsuCollectionDbUpdate
-> {
+export class OsuCollectionDbParser extends UpdatableParser<OsuCollectionDb, OsuCollectionDbKey, OsuCollectionDbUpdate> {
     constructor() {
-        super({
-            name: "OsuCollectionDbParser",
-            create: native.create_osu_collection_db_parser,
-            free: native.free_osu_collection_db_parser,
-            parse: native.osu_collection_db_parser_parse,
-            write: native.osu_collection_db_parser_write,
-            get: native.osu_collection_db_parser_get,
-            getByName: native.osu_collection_db_parser_get_by_name,
-            update: native.osu_collection_db_parser_update,
-            last_error: native.osu_collection_db_parser_last_error
-        });
+        super("osu_collection_db_parser");
     }
 }
 
-export class OsuScoresDbParser extends ParserBase<OsuScoresDb> {
+export class OsuScoresDbParser extends Parser<OsuScoresDb> {
     constructor() {
-        super({
-            name: "OsuScoresDbParser",
-            create: native.create_osu_scores_db_parser,
-            free: native.free_osu_scores_db_parser,
-            parse: native.osu_scores_db_parser_parse,
-            write: native.osu_scores_db_parser_write,
-            get: native.osu_scores_db_parser_get,
-            last_error: native.osu_scores_db_parser_last_error
-        });
+        super("osu_scores_db_parser");
     }
 }
 
-export class OsuReplayParser extends ParserBase<OsuReplay> {
+export class OsuReplayParser extends Parser<OsuReplay> {
     constructor() {
-        super({
-            name: "OsuReplayParser",
-            create: native.create_osu_replay_parser,
-            free: native.free_osu_replay_parser,
-            parse: native.osu_replay_parser_parse,
-            write: native.osu_replay_parser_write,
-            get: native.osu_replay_parser_get,
-            last_error: native.osu_replay_parser_last_error
-        });
+        super("osu_replay_parser");
     }
 }
 
-export class OsdbParser extends ParserWithUpdateAndGetByName<OsdbData, OsdbKey, OsdbUpdate> {
+export class OsdbParser extends UpdatableParser<OsdbData, OsdbKey, OsdbUpdate> {
     constructor() {
-        super({
-            name: "OsdbParser",
-            create: native.create_osdb_parser,
-            free: native.free_osdb_parser,
-            parse: native.osdb_parser_parse,
-            write: native.osdb_parser_write,
-            get: native.osdb_parser_get,
-            getByName: native.osdb_parser_get_by_name,
-            update: native.osdb_parser_update,
-            last_error: native.osdb_parser_last_error
-        });
+        super("osdb_parser");
     }
 }
 

@@ -7,29 +7,7 @@ namespace osu_bindings {
     using osu_replay_instance = parser_base<osu_replay, osu_replay_parser>;
 
     Napi::Object replay_to_js(Napi::Env& env, const osu_replay& replay) {
-        Napi::Object obj = Napi::Object::New(env);
-        obj.Set("mode", replay.mode);
-        obj.Set("version", replay.version);
-        obj.Set("beatmap_md5", replay.beatmap_md5);
-        obj.Set("player_name", replay.player_name);
-        obj.Set("replay_md5", replay.replay_md5);
-        obj.Set("count_300", replay.count_300);
-        obj.Set("count_100", replay.count_100);
-        obj.Set("count_50", replay.count_50);
-        obj.Set("count_geki", replay.count_geki);
-        obj.Set("count_katu", replay.count_katu);
-        obj.Set("count_miss", replay.count_miss);
-        obj.Set("score", replay.score);
-        obj.Set("max_combo", replay.max_combo);
-        obj.Set("perfect", replay.perfect);
-        obj.Set("mods", replay.mods);
-        obj.Set("life_bar_graph", replay.life_bar_graph);
-        obj.Set("timestamp", Napi::BigInt::New(env, replay.timestamp));
-        obj.Set("replay_data_length", replay.replay_data_length);
-        obj.Set("replay_data", bytes_to_uint8array(env, replay.replay_data));
-        obj.Set("online_score_id", Napi::BigInt::New(env, replay.online_score_id));
-        obj.Set("additional_mod_info", optional_double_to_js(env, replay.additional_mod_info));
-        return obj;
+        return full_score_to_js(env, replay);
     }
 
     Napi::Value create_osu_replay_parser(const Napi::CallbackInfo& info) {

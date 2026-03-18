@@ -13,6 +13,7 @@
 #include <vector>
 
 #include "utils/log.hpp"
+#include "osu/osu.hpp"
 
 namespace osu_bindings {
     struct handle_entry {
@@ -295,6 +296,7 @@ namespace osu_bindings {
     template <typename T> Napi::Value free_instance(const Napi::CallbackInfo& info) {
         // T must implement free_instance() for cleanup.
         uint64_t handle = 0;
+
         if (!read_handle(info, 0, handle)) {
             return info.Env().Undefined();
         }
@@ -364,5 +366,35 @@ namespace osu_bindings {
         }
 
         return env.Null();
+    }
+
+    inline void score_base_to_js(Napi::Env& env, Napi::Object& obj, const osu_score_base& s) {
+        obj.Set("mode", s.mode);
+        obj.Set("version", s.version);
+        obj.Set("beatmap_md5", s.beatmap_md5);
+        obj.Set("player_name", s.player_name);
+        obj.Set("replay_md5", s.replay_md5);
+        obj.Set("count_300", s.count_300);
+        obj.Set("count_100", s.count_100);
+        obj.Set("count_50", s.count_50);
+        obj.Set("count_geki", s.count_geki);
+        obj.Set("count_katu", s.count_katu);
+        obj.Set("count_miss", s.count_miss);
+        obj.Set("score", s.score);
+        obj.Set("max_combo", s.max_combo);
+        obj.Set("perfect", s.perfect);
+        obj.Set("mods", s.mods);
+        obj.Set("life_bar_graph", s.life_bar_graph);
+        obj.Set("timestamp", Napi::BigInt::New(env, s.timestamp));
+        obj.Set("additional_mod_info", optional_double_to_js(env, s.additional_mod_info));
+    }
+
+    template <typename T> Napi::Object full_score_to_js(Napi::Env& env, const T& s) {
+        Napi::Object obj = Napi::Object::New(env);
+        score_base_to_js(env, obj, s);
+        obj.Set("replay_data_length", s.replay_data_length);
+        obj.Set("replay_data", bytes_to_uint8array(env, s.replay_data));
+        obj.Set("online_score_id", Napi::BigInt::New(env, s.online_score_id));
+        return obj;
     }
 }
