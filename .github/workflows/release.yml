@@ -17,9 +17,9 @@ jobs:
         runs-on: ${{ matrix.os }}
         steps:
             - name: checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
               with:
-                  submodules: true
+                  submodules: recursive
 
             - name: install system dependencies (ubuntu)
               if: runner.os == 'Linux'
@@ -29,19 +29,37 @@ jobs:
 
             - name: install system dependencies (windows)
               if: runner.os == 'Windows'
-              run: choco install ninja
+              run: choco install -y ninja
 
             - name: setup MSVC environment
               if: runner.os == 'Windows'
               uses: ilammy/msvc-dev-cmd@v1
 
-            - name: Install LLVM and Clang
+            - name: cache LLVM
+              if: runner.os == 'Windows'
+              id: cache-llvm
+              uses: actions/cache@v4
+              with:
+                  path: C:\Program Files\LLVM
+                  key: ${{ runner.os }}-llvm-20.1.0
+
+            - name: install LLVM and Clang
+              if: runner.os == 'Windows' && steps.cache-llvm.outputs.cache-hit != 'true'
               uses: KyleMayes/install-llvm-action@v2
               with:
                   version: "20.1.0"
 
+            - name: expose LLVM on PATH
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: Add-Content -Path $env:GITHUB_PATH -Value 'C:\\Program Files\\LLVM\\bin'
+
+            - name: verify clang
+              if: runner.os == 'Windows'
+              run: clang --version
+
             - name: setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@v4
               with:
                   node-version: "22"
 
@@ -60,65 +78,27 @@ jobs:
               shell: bash
               run: |
                   mkdir -p prebuilds/${{ matrix.platform }}
-                  cp build/osu-beatmap-parser.node prebuilds/${{ matrix.platform }}/
+                  cp build/osu-parser.node prebuilds/${{ matrix.platform }}/
 
             - name: upload prebuild artifacts
-              uses: actions/upload-artifact@v5
+              uses: actions/upload-artifact@v4
               with:
                   name: prebuilds-${{ matrix.platform }}
                   path: prebuilds/${{ matrix.platform }}/
                   retention-days: 7
 
-    prebuild-wasm:
-        runs-on: ubuntu-latest
-        steps:
-            - name: checkout
-              uses: actions/checkout@v6
-              with:
-                  submodules: true
-
-            - name: setup emscripten
-              uses: mymindstorm/setup-emsdk@v14
-              with:
-                  version: "latest"
-
-            - name: setup Node.js
-              uses: actions/setup-node@v6
-              with:
-                  node-version: "22"
-
-            - name: setup Bun
-              uses: oven-sh/setup-bun@v2
-              with:
-                  bun-version: latest
-
-            - name: install dependencies
-              run: bun install
-
-            - name: build wasm
-              run: bun run compile:wasm
-
-            - name: upload wasm artifacts
-              uses: actions/upload-artifact@v6
-              with:
-                  name: wasm-build
-                  path: |
-                      dist/browser/*
-                      build/osu-parser.browser.js
-                  retention-days: 7
-
     release:
-        needs: [prebuild-native, prebuild-wasm]
+        needs: [prebuild-native]
         if: startsWith(github.ref, 'refs/tags/')
         runs-on: ubuntu-latest
         permissions:
             contents: write
         steps:
             - name: checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: download native artifacts
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v4
               with:
                   path: artifacts
 
@@ -126,18 +106,11 @@ jobs:
               run: |
                   mkdir -p release-assets
 
-                  # native prebuilds
                   if [ -d "artifacts/prebuilds-win32-x64" ]; then
-                      cp artifacts/prebuilds-win32-x64/osu-beatmap-parser.node release-assets/osu-beatmap-parser-win32-x64.node
+                      cp artifacts/prebuilds-win32-x64/osu-parser.node release-assets/osu-parser-win32-x64.node
                   fi
                   if [ -d "artifacts/prebuilds-linux-x64" ]; then
-                      cp artifacts/prebuilds-linux-x64/osu-beatmap-parser.node release-assets/osu-beatmap-parser-linux-x64.node
-                  fi
-
-                  # standalone browser bundle for direct script usage
-                  standalone_bundle=$(find artifacts -type f -name "osu-parser.browser.js" | head -n 1 || true)
-                  if [ -n "$standalone_bundle" ]; then
-                      cp "$standalone_bundle" release-assets/
+                      cp artifacts/prebuilds-linux-x64/osu-parser.node release-assets/osu-parser-linux-x64.node
                   fi
 
                   ls -la release-assets/
@@ -148,7 +121,6 @@ jobs:
               run: |
                   TAG_NAME=${GITHUB_REF#refs/tags/}
 
-                  # create release with assets
                   gh release create "$TAG_NAME" \
                     --repo="$GITHUB_REPOSITORY" \
                     --title="$TAG_NAME" \
@@ -156,7 +128,7 @@ jobs:
                     release-assets/*
 
     publish:
-        needs: [prebuild-native, prebuild-wasm]
+        needs: [prebuild-native]
         if: startsWith(github.ref, 'refs/tags/')
         runs-on: ubuntu-latest
         permissions:
@@ -164,10 +136,10 @@ jobs:
             id-token: write
         steps:
             - name: checkout
-              uses: actions/checkout@v6
+              uses: actions/checkout@v4
 
             - name: setup Node.js
-              uses: actions/setup-node@v6
+              uses: actions/setup-node@v4
               with:
                   node-version: "22"
                   registry-url: "https://registry.npmjs.org"
@@ -181,7 +153,7 @@ jobs:
               run: bun install --ignore-scripts
 
             - name: download prebuilds
-              uses: actions/download-artifact@v5
+              uses: actions/download-artifact@v4
               with:
                   path: prebuilds-tmp
 
@@ -189,7 +161,6 @@ jobs:
               run: |
                   mkdir -p prebuilds/win32-x64 prebuilds/linux-x64
 
-                  # copy native prebuilds only (no wasm for npm)
                   if [ -d "prebuilds-tmp/prebuilds-win32-x64" ]; then
                       cp prebuilds-tmp/prebuilds-win32-x64/* prebuilds/win32-x64/
                   fi
@@ -205,13 +176,6 @@ jobs:
               run: |
                   rm -rf dist
                   bun run compile:tsc
-
-            - name: include browser runtime
-              run: |
-                  mkdir -p dist/browser
-                  if [ -d "prebuilds-tmp/wasm-build/dist/browser" ]; then
-                      cp prebuilds-tmp/wasm-build/dist/browser/* dist/browser/
-                  fi
 
             - name: publish to npm
               run: npm publish --provenance --access public

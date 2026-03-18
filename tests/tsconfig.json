@@ -1,13 +1,11 @@
 {
+    "extends": "../tsconfig.json",
     "compilerOptions": {
-        "target": "ES2022",
-        "module": "ESNext",
-        "moduleResolution": "bundler",
-        "strict": true,
         "noEmit": true,
-        "types": ["bun-types", "node"],
-        "skipLibCheck": true,
-        "forceConsistentCasingInFileNames": true
+        "rootDir": ".",
+        "module": "ES2020",
+        "moduleResolution": "Bundler",
+        "types": ["bun-types"]
     },
-    "include": ["./**/*.ts"]
+    "include": ["**/*.ts"]
 }

@@ -1,29 +1,37 @@
-## osu-beatmap-parser
+# osu-parser
 
-native .osu beatmap parser used on [osu-stuff](https://github.com/mezleca/osu-stuff)
+osu! parser library for Node.js.
 
-## installation
+## required
 
-```bash
-npm install @rel-packages/osu-beatmap-parser
-```
+- Node.js 24+
+- Bun (latest)
+- CMake + Ninja
+
+## setup
+
+1. `git submodule update --init --recursive`
+2. `bun install`
+3. `bun run build`
 
 ## usage
 
-check [examples](https://github.com/mezleca/osu-beatmap-parser/tree/main/examples) for wasm / nodejs usage examples.
-
-### node
-
 ```ts
-import { parse } from "@rel-packages/osu-beatmap-parser";
-const parsed = await parser.parse(data);
-```
+import { BeatmapParser } from "osu-parser";
 
-### wasm (browser)
+const parser = new BeatmapParser();
 
-```ts
-import { init_wasm, parse } from "@rel-packages/osu-beatmap-parser/browser";
+const main = async () => {
+    try {
+        await parser.parse("path/to/file.osu");
+        const data = await parser.get();
+        console.log(data);
+    } catch (error) {
+        console.error("parse failed:", parser.last_error() ?? error);
+    } finally {
+        await parser.free();
+    }
+};
 
-await init_wasm();
-const parsed = await parse(data);
+main();
 ```

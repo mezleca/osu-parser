@@ -1,0 +1,308 @@
+#include <chrono>
+#include <cstring>
+
+#include "osdb.hpp"
+#include "utils/binary.hpp"
+#include "utils/gzip.hpp"
+
+static bool ends_with(const std::string& value, const char* suffix) {
+    const size_t suffix_len = std::strlen(suffix);
+    if (value.size() < suffix_len) {
+        return false;
+    }
+    return value.compare(value.size() - suffix_len, suffix_len, suffix) == 0;
+}
+
+static int osdb_version_to_code(const std::string& version) {
+    if (version == "o!dm") {
+        return 1;
+    }
+    if (version == "o!dm2") {
+        return 2;
+    }
+    if (version == "o!dm3") {
+        return 3;
+    }
+    if (version == "o!dm4") {
+        return 4;
+    }
+    if (version == "o!dm5") {
+        return 5;
+    }
+    if (version == "o!dm6") {
+        return 6;
+    }
+    if (version == "o!dm7") {
+        return 7;
+    }
+    if (version == "o!dm8") {
+        return 8;
+    }
+    if (version == "o!dm7min") {
+        return 1007;
+    }
+    if (version == "o!dm8min") {
+        return 1008;
+    }
+    return 0;
+}
+
+bool osdb_parser::parse(std::string location) {
+    if (data == nullptr) {
+        last_error = "parser data is null";
+        return false;
+    }
+
+    std::string target_location = std::move(location);
+    std::vector<uint8_t> buffer;
+
+    if (!osu_binary::read_file_buffer(target_location, buffer)) {
+        last_error = "failed to read file";
+        *data = osdb_data();
+        this->location.clear();
+        return false;
+    }
+
+    try {
+        osu_binary::binary_cursor cursor;
+        osu_binary::set_cursor(cursor, buffer);
+
+        const std::string version_string = osu_binary::read_string2(cursor);
+        const int version = osdb_version_to_code(version_string);
+
+        if (version == 0) {
+            last_error = "invalid osdb version";
+            *data = osdb_data();
+            this->location.clear();
+            return false;
+        }
+
+        const bool is_minimal = ends_with(version_string, "min");
+        osdb_data temp;
+
+        temp.version_string = version_string;
+        std::vector<uint8_t> decompressed;
+
+        if (version >= 7) {
+            std::vector<uint8_t> compressed(buffer.begin() + static_cast<std::ptrdiff_t>(cursor.offset), buffer.end());
+            if (!osu_binary::gzip_decompress(compressed, decompressed)) {
+                last_error = "failed to decompress osdb data";
+                *data = osdb_data();
+                this->location.clear();
+                return false;
+            }
+
+            osu_binary::set_cursor(cursor, decompressed);
+            osu_binary::read_string2(cursor);
+        }
+
+        temp.save_data = osu_binary::read_i64(cursor);
+        temp.last_editor = osu_binary::read_string2(cursor);
+        temp.count = osu_binary::read_i32(cursor);
+
+        if (temp.count < 0) {
+            last_error = "invalid collection count";
+            *data = osdb_data();
+            this->location.clear();
+            return false;
+        }
+
+        temp.collections.clear();
+        temp.collections.reserve(static_cast<size_t>(temp.count));
+
+        for (int32_t i = 0; i < temp.count; i++) {
+            osdb_collection collection;
+            collection.name = osu_binary::read_string2(cursor);
+
+            if (version >= 7) {
+                collection.online_id = osu_binary::read_i32(cursor);
+            } else {
+                collection.online_id = 0;
+            }
+
+            const int32_t beatmaps_count = osu_binary::read_i32(cursor);
+
+            if (beatmaps_count < 0) {
+                last_error = "invalid beatmaps count";
+                *data = osdb_data();
+                this->location.clear();
+                return false;
+            }
+
+            collection.beatmaps.clear();
+            collection.beatmaps.reserve(static_cast<size_t>(beatmaps_count));
+
+            for (int32_t j = 0; j < beatmaps_count; j++) {
+                osdb_beatmap beatmap;
+
+                beatmap.difficulty_id = osu_binary::read_i32(cursor);
+                beatmap.beatmapset_id = version >= 2 ? osu_binary::read_i32(cursor) : -1;
+
+                if (!is_minimal) {
+                    beatmap.artist = osu_binary::read_string2(cursor);
+                    beatmap.title = osu_binary::read_string2(cursor);
+                    beatmap.difficulty = osu_binary::read_string2(cursor);
+                }
+
+                beatmap.checksum = osu_binary::read_string2(cursor);
+
+                if (version >= 4) {
+                    beatmap.user_comment = osu_binary::read_string2(cursor);
+                }
+
+                if (version >= 8 || (version >= 5 && !is_minimal)) {
+                    beatmap.mode = osu_binary::read_u8(cursor);
+                }
+
+                if (version >= 8 || (version >= 6 && !is_minimal)) {
+                    beatmap.difficulty_rating = osu_binary::read_f64(cursor);
+                }
+
+                collection.beatmaps.push_back(std::move(beatmap));
+            }
+
+            if (version >= 3) {
+                const int32_t hash_count = osu_binary::read_i32(cursor);
+                collection.hash_only_beatmaps.clear();
+                if (hash_count < 0) {
+                    last_error = "invalid hash count";
+                    *data = osdb_data();
+                    this->location.clear();
+                    return false;
+                }
+                collection.hash_only_beatmaps.reserve(static_cast<size_t>(hash_count));
+
+                for (int32_t j = 0; j < hash_count; j++) {
+                    collection.hash_only_beatmaps.push_back(osu_binary::read_string2(cursor));
+                }
+            }
+
+            temp.collections.push_back(std::move(collection));
+        }
+
+        const std::string footer = osu_binary::read_string2(cursor);
+
+        if (footer != "By Piotrekol") {
+            last_error = "invalid osdb footer";
+            *data = osdb_data();
+            this->location.clear();
+            return false;
+        }
+
+        *data = std::move(temp);
+        this->location = std::move(target_location);
+        last_error.clear();
+        return true;
+    } catch (const std::exception& e) {
+        last_error = e.what();
+        *data = osdb_data();
+        this->location.clear();
+        return false;
+    } catch (...) {
+        last_error = "unknown error";
+        *data = osdb_data();
+        this->location.clear();
+        return false;
+    }
+}
+
+bool osdb_parser::write() {
+    if (data == nullptr || location.empty()) {
+        last_error = data == nullptr ? "parser data is null" : "location is empty";
+        return false;
+    }
+
+    const std::string version_string = data->version_string.empty() ? "o!dm8min" : data->version_string;
+    const int version = osdb_version_to_code(version_string);
+
+    if (version == 0) {
+        last_error = "invalid osdb version";
+        return false;
+    }
+    const bool is_minimal = ends_with(version_string, "min");
+
+    std::vector<uint8_t> content;
+    if (version >= 7) {
+        osu_binary::write_string2(content, version_string);
+    }
+
+    const int64_t save_time = data->save_data != 0
+                                  ? data->save_data
+                                  : static_cast<int64_t>(std::chrono::duration_cast<std::chrono::milliseconds>(
+                                                             std::chrono::system_clock::now().time_since_epoch())
+                                                             .count());
+
+    data->count = static_cast<int32_t>(data->collections.size());
+
+    osu_binary::write_i64(content, save_time);
+    osu_binary::write_string2(content, data->last_editor);
+    osu_binary::write_i32(content, data->count);
+
+    for (const auto& collection : data->collections) {
+        osu_binary::write_string2(content, collection.name);
+
+        if (version >= 7) {
+            osu_binary::write_i32(content, collection.online_id);
+        }
+
+        osu_binary::write_i32(content, static_cast<int32_t>(collection.beatmaps.size()));
+
+        for (const auto& beatmap : collection.beatmaps) {
+            osu_binary::write_i32(content, beatmap.difficulty_id);
+            if (version >= 2) {
+                osu_binary::write_i32(content, beatmap.beatmapset_id);
+            }
+
+            if (!is_minimal) {
+                osu_binary::write_string2(content, beatmap.artist);
+                osu_binary::write_string2(content, beatmap.title);
+                osu_binary::write_string2(content, beatmap.difficulty);
+            }
+
+            osu_binary::write_string2(content, beatmap.checksum);
+
+            if (version >= 4) {
+                osu_binary::write_string2(content, beatmap.user_comment);
+            }
+
+            if (version >= 8 || (version >= 5 && !is_minimal)) {
+                osu_binary::write_u8(content, static_cast<uint8_t>(beatmap.mode));
+            }
+
+            if (version >= 8 || (version >= 6 && !is_minimal)) {
+                osu_binary::write_f64(content, beatmap.difficulty_rating);
+            }
+        }
+
+        if (version >= 3) {
+            osu_binary::write_i32(content, static_cast<int32_t>(collection.hash_only_beatmaps.size()));
+            for (const auto& hash : collection.hash_only_beatmaps) {
+                osu_binary::write_string2(content, hash);
+            }
+        }
+    }
+
+    osu_binary::write_string2(content, "By Piotrekol");
+
+    std::vector<uint8_t> buffer;
+    osu_binary::write_string2(buffer, version_string);
+
+    if (version >= 7) {
+        std::vector<uint8_t> compressed;
+        if (!osu_binary::gzip_compress(content, compressed)) {
+            last_error = "failed to compress osdb data";
+            return false;
+        }
+        buffer.insert(buffer.end(), compressed.begin(), compressed.end());
+    } else {
+        buffer.insert(buffer.end(), content.begin(), content.end());
+    }
+
+    if (!osu_binary::write_file_buffer(location, buffer)) {
+        last_error = "failed to write file";
+        return false;
+    }
+
+    last_error.clear();
+    return true;
+}

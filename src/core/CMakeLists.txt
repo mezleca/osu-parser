@@ -1,0 +1,33 @@
+file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/**/*.cpp"
+    "${CMAKE_CURRENT_LIST_DIR}/**/*.c"
+)
+
+file(GLOB_RECURSE CORE_HEADERS CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_LIST_DIR}/**/*.hpp"
+    "${CMAKE_CURRENT_LIST_DIR}/**/*.h"
+)
+
+add_library(osu_parser_core STATIC ${CORE_SOURCES} ${CORE_HEADERS})
+target_include_directories(osu_parser_core PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
+set_target_properties(osu_parser_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
+
+if(NOT DEFINED BUILD_EXAMPLES)
+    set(BUILD_EXAMPLES OFF CACHE BOOL "")
+endif()
+if(NOT DEFINED BUILD_TESTS)
+    set(BUILD_TESTS OFF CACHE BOOL "")
+endif()
+if(NOT DEFINED BUILD_SHARED_LIBS)
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "")
+endif()
+if(NOT DEFINED BUILD_HEADER_ONLY)
+    set(BUILD_HEADER_ONLY OFF CACHE BOOL "")
+endif()
+if(NOT DEFINED AMALGAMATE_SOURCES)
+    set(AMALGAMATE_SOURCES OFF CACHE BOOL "")
+endif()
+
+add_subdirectory("${CMAKE_CURRENT_LIST_DIR}/../../vendor/miniz" "${CMAKE_CURRENT_BINARY_DIR}/miniz")
+target_link_libraries(osu_parser_core PUBLIC miniz)
+set_target_properties(miniz PROPERTIES POSITION_INDEPENDENT_CODE ON)
