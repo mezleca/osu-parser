@@ -442,9 +442,9 @@ static std::vector<hit_object> parse_hit_objects(const std::vector<std::string_v
                 }
             }
 
-            ho.slides = parse_int(parts[6], 1);
+            ho.slides = std::max(0, parse_int(parts[6], 1));
             ho.length = parse_double(parts[7], 0.0);
-            int edge_count = ho.slides + 1;
+            size_t edge_count = static_cast<size_t>(ho.slides) + 1;
 
             if (parts.size() > 8) {
                 for (const auto& s : split_view(parts[8], '|')) {

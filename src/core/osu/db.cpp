@@ -35,7 +35,11 @@ static std::vector<osu_int_float_pair> read_star_ratings(osu_binary::binary_curs
     std::vector<osu_int_float_pair> ratings;
     int32_t count = osu_binary::read_i32(cursor);
 
-    if (count <= 0) {
+    if (count < 0) {
+        throw std::runtime_error("invalid star rating count");
+    }
+
+    if (count == 0) {
         return ratings;
     }
 
@@ -177,13 +181,13 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
     return beatmap;
 }
 
-bool osu_db_parser::parse(std::string location) {
+bool osu_db_parser::parse(const std::string& location) {
     if (data == nullptr) {
         last_error = "parser data is null";
         return false;
     }
 
-    this->location = std::move(location);
+    this->location = location;
     std::vector<uint8_t> buffer;
 
     if (!osu_binary::read_file_buffer(this->location, buffer)) {

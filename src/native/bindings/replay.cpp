@@ -24,10 +24,10 @@ namespace osu_bindings {
         obj.Set("perfect", replay.perfect);
         obj.Set("mods", replay.mods);
         obj.Set("life_bar_graph", replay.life_bar_graph);
-        obj.Set("timestamp", static_cast<double>(replay.timestamp));
+        obj.Set("timestamp", Napi::BigInt::New(env, replay.timestamp));
         obj.Set("replay_data_length", replay.replay_data_length);
         obj.Set("replay_data", bytes_to_uint8array(env, replay.replay_data));
-        obj.Set("online_score_id", static_cast<double>(replay.online_score_id));
+        obj.Set("online_score_id", Napi::BigInt::New(env, replay.online_score_id));
         obj.Set("additional_mod_info", optional_double_to_js(env, replay.additional_mod_info));
         return obj;
     }

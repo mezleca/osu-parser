@@ -4,13 +4,13 @@
 
 #include <algorithm>
 
-bool osu_replay_parser::parse(std::string location) {
+bool osu_replay_parser::parse(const std::string& location) {
     if (data == nullptr) {
         last_error = "parser data is null";
         return false;
     }
 
-    this->location = std::move(location);
+    this->location = location;
     std::vector<uint8_t> buffer;
     if (!osu_binary::read_file_buffer(this->location, buffer)) {
         last_error = "failed to read file";

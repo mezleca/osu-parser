@@ -2,11 +2,367 @@
 
 #include "beatmap/beatmap.hpp"
 #include "parser/parser_base.hpp"
+#include "update_helpers.hpp"
 
 #include <string>
 
 namespace osu_bindings {
     using beatmap_instance = parser_base<osu_beatmap, beatmap_parser>;
+
+#define OSU_GENERAL_FIELDS(X)                                                                                          \
+    X(get_optional_string, "AudioFilename", audio_filename)                                                            \
+    X(get_optional_int32, "AudioLeadIn", audio_lead_in)                                                                \
+    X(get_optional_string, "AudioHash", audio_hash)                                                                    \
+    X(get_optional_int32, "PreviewTime", preview_time)                                                                 \
+    X(get_optional_int32, "Countdown", countdown)                                                                      \
+    X(get_optional_string, "SampleSet", sample_set)                                                                    \
+    X(get_optional_double, "StackLeniency", stack_leniency)                                                            \
+    X(get_optional_int32, "Mode", mode)                                                                                \
+    X(get_optional_int32, "LetterboxInBreaks", letterbox_in_breaks)                                                    \
+    X(get_optional_int32, "StoryFireInFront", story_fire_in_front)                                                     \
+    X(get_optional_int32, "UseSkinSprites", use_skin_sprites)                                                          \
+    X(get_optional_int32, "AlwaysShowPlayfield", always_show_playfield)                                                \
+    X(get_optional_string, "OverlayPosition", overlay_position)                                                        \
+    X(get_optional_string, "SkinPreference", skin_preference)                                                          \
+    X(get_optional_int32, "EpilepsyWarning", epilepsy_warning)                                                         \
+    X(get_optional_int32, "CountdownOffset", countdown_offset)                                                         \
+    X(get_optional_int32, "SpecialStyle", special_style)                                                               \
+    X(get_optional_int32, "WidescreenStoryboard", widescreen_storyboard)                                               \
+    X(get_optional_int32, "SamplesMatchPlaybackRate", samples_match_playback_rate)
+
+#define OSU_EDITOR_FIELDS(X)                                                                                           \
+    X(get_optional_double, "DistanceSpacing", distance_spacing)                                                        \
+    X(get_optional_int32, "BeatDivisor", beat_divisor)                                                                 \
+    X(get_optional_int32, "GridSize", grid_size)                                                                       \
+    X(get_optional_double, "TimelineZoom", timeline_zoom)
+
+#define OSU_METADATA_FIELDS(X)                                                                                         \
+    X(get_optional_string, "Title", title)                                                                             \
+    X(get_optional_string, "TitleUnicode", title_unicode)                                                              \
+    X(get_optional_string, "Artist", artist)                                                                           \
+    X(get_optional_string, "ArtistUnicode", artist_unicode)                                                            \
+    X(get_optional_string, "Creator", creator)                                                                         \
+    X(get_optional_string, "Version", version)                                                                         \
+    X(get_optional_string, "Source", source)                                                                           \
+    X(get_optional_string, "Tags", tags)                                                                               \
+    X(get_optional_int32, "BeatmapID", beatmap_id)                                                                     \
+    X(get_optional_int32, "BeatmapSetID", beatmap_set_id)
+
+#define OSU_DIFFICULTY_FIELDS(X)                                                                                       \
+    X(get_optional_double, "HPDrainRate", hp_drain_rate)                                                               \
+    X(get_optional_double, "CircleSize", circle_size)                                                                  \
+    X(get_optional_double, "OverallDifficulty", overall_difficulty)                                                    \
+    X(get_optional_double, "ApproachRate", approach_rate)                                                              \
+    X(get_optional_double, "SliderMultiplier", slider_multiplier)                                                      \
+    X(get_optional_double, "SliderTickRate", slider_tick_rate)
+
+    bool parse_version_value(const Napi::Value& value, int32_t& out, std::string& err) {
+        if (value.IsNumber()) {
+            out = value.As<Napi::Number>().Int32Value();
+            return true;
+        }
+
+        if (!value.IsString()) {
+            err = "invalid type for version";
+            return false;
+        }
+
+        std::string text = value.As<Napi::String>();
+
+        if (!text.empty() && (text[0] == 'v' || text[0] == 'V')) {
+            text.erase(text.begin());
+        }
+
+        try {
+            out = std::stoi(text);
+        } catch (...) {
+            err = "invalid version format";
+            return false;
+        }
+
+        return true;
+    }
+
+    bool parse_int_array(const Napi::Value& value, std::vector<int>& out, std::string& err) {
+        if (!value.IsArray()) {
+            err = "expected array";
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+
+        out.clear();
+        out.reserve(arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+            if (!item.IsNumber()) {
+                err = "expected number in array";
+                return false;
+            }
+            out.push_back(item.As<Napi::Number>().Int32Value());
+        }
+
+        return true;
+    }
+
+    bool parse_color(const Napi::Value& value, std::array<int, 3>& out, std::string& err) {
+        if (!value.IsArray()) {
+            err = "expected color array";
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+
+        if (arr.Length() != 3) {
+            err = "color array must have 3 items";
+            return false;
+        }
+
+        for (uint32_t i = 0; i < 3; i++) {
+            Napi::Value item = arr.Get(i);
+
+            if (!item.IsNumber()) {
+                err = "color values must be numbers";
+                return false;
+            }
+
+            out[i] = item.As<Napi::Number>().Int32Value();
+        }
+
+        return true;
+    }
+
+    bool update_general_section(general_section& s, const Napi::Object& patch, std::string& err) {
+#define APPLY_FIELD(fn, key, member)                                                                                   \
+    if (!fn(patch, key, s.member, err)) {                                                                              \
+        return false;                                                                                                  \
+    }
+        OSU_GENERAL_FIELDS(APPLY_FIELD)
+#undef APPLY_FIELD
+        return true;
+    }
+
+    bool update_editor_section(editor_section& s, const Napi::Object& patch, std::string& err) {
+        if (patch.Has("Bookmarks")) {
+            if (!parse_int_array(patch.Get("Bookmarks"), s.bookmarks, err)) {
+                return false;
+            }
+        }
+#define APPLY_FIELD(fn, key, member)                                                                                   \
+    if (!fn(patch, key, s.member, err)) {                                                                              \
+        return false;                                                                                                  \
+    }
+        OSU_EDITOR_FIELDS(APPLY_FIELD)
+#undef APPLY_FIELD
+        return true;
+    }
+
+    bool update_metadata_section(metadata_section& s, const Napi::Object& patch, std::string& err) {
+#define APPLY_FIELD(fn, key, member)                                                                                   \
+    if (!fn(patch, key, s.member, err)) {                                                                              \
+        return false;                                                                                                  \
+    }
+        OSU_METADATA_FIELDS(APPLY_FIELD)
+#undef APPLY_FIELD
+        return true;
+    }
+
+    bool update_difficulty_section(difficulty_section& s, const Napi::Object& patch, std::string& err) {
+#define APPLY_FIELD(fn, key, member)                                                                                   \
+    if (!fn(patch, key, s.member, err)) {                                                                              \
+        return false;                                                                                                  \
+    }
+        OSU_DIFFICULTY_FIELDS(APPLY_FIELD)
+#undef APPLY_FIELD
+        return true;
+    }
+
+    bool update_background(event_background& b, const Napi::Object& patch, std::string& err) {
+        return get_optional_string(patch, "filename", b.filename, err) &&
+               get_optional_int32(patch, "xOffset", b.x_offset, err) &&
+               get_optional_int32(patch, "yOffset", b.y_offset, err);
+    }
+
+    bool update_video(event_video& v, const Napi::Object& patch, std::string& err) {
+        return get_optional_string(patch, "filename", v.filename, err) &&
+               get_optional_int32(patch, "startTime", v.start_time, err) &&
+               get_optional_int32(patch, "xOffset", v.x_offset, err) &&
+               get_optional_int32(patch, "yOffset", v.y_offset, err);
+    }
+
+    bool parse_event_break(const Napi::Value& value, event_break& out, std::string& err) {
+        if (!is_object(value)) {
+            err = "break must be an object";
+            return false;
+        }
+
+        Napi::Object obj = value.As<Napi::Object>();
+
+        return get_optional_int32(obj, "startTime", out.start_time, err) &&
+               get_optional_int32(obj, "endTime", out.end_time, err);
+    }
+
+    bool parse_timing_point(const Napi::Value& value, timing_point& out, std::string& err) {
+        if (!is_object(value)) {
+            err = "timing point must be an object";
+            return false;
+        }
+
+        Napi::Object obj = value.As<Napi::Object>();
+
+        return get_optional_int32(obj, "time", out.time, err) &&
+               get_optional_double(obj, "beatLength", out.beat_length, err) &&
+               get_optional_int32(obj, "meter", out.meter, err) &&
+               get_optional_int32(obj, "sampleSet", out.sample_set, err) &&
+               get_optional_int32(obj, "sampleIndex", out.sample_index, err) &&
+               get_optional_int32(obj, "volume", out.volume, err) &&
+               get_optional_int32(obj, "uninherited", out.uninherited, err) &&
+               get_optional_int32(obj, "effects", out.effects, err);
+    }
+
+    bool parse_hit_sample(const Napi::Value& value, hit_sample& out, std::string& err) {
+        if (!is_object(value)) {
+            err = "hitSample must be an object";
+            return false;
+        }
+
+        Napi::Object obj = value.As<Napi::Object>();
+
+        return get_optional_int32(obj, "normalSet", out.normal_set, err) &&
+               get_optional_int32(obj, "additionSet", out.addition_set, err) &&
+               get_optional_int32(obj, "index", out.index, err) && get_optional_int32(obj, "volume", out.volume, err) &&
+               get_optional_string(obj, "filename", out.filename, err);
+    }
+
+    bool parse_curve_points(const Napi::Value& value, std::vector<std::pair<int, int>>& out, std::string& err) {
+        if (!value.IsArray()) {
+            err = "curvePoints must be an array";
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+
+        out.clear();
+        out.reserve(arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+
+            if (!is_object(item)) {
+                err = "curve point must be an object";
+                return false;
+            }
+
+            Napi::Object obj = item.As<Napi::Object>();
+
+            int32_t x = 0;
+            int32_t y = 0;
+
+            if (!get_optional_int32(obj, "x", x, err) || !get_optional_int32(obj, "y", y, err)) {
+                return false;
+            }
+
+            out.emplace_back(x, y);
+        }
+        return true;
+    }
+
+    bool parse_edge_sets(const Napi::Value& value, std::vector<std::pair<int, int>>& out, std::string& err) {
+        if (!value.IsArray()) {
+            err = "edgeSets must be an array";
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+
+        out.clear();
+        out.reserve(arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+
+            if (!is_object(item)) {
+                err = "edge set must be an object";
+                return false;
+            }
+
+            Napi::Object obj = item.As<Napi::Object>();
+
+            int32_t normal_set = 0;
+            int32_t addition_set = 0;
+
+            if (!get_optional_int32(obj, "normalSet", normal_set, err) ||
+                !get_optional_int32(obj, "additionSet", addition_set, err)) {
+                return false;
+            }
+
+            out.emplace_back(normal_set, addition_set);
+        }
+        return true;
+    }
+
+    bool parse_edge_sounds(const Napi::Value& value, std::vector<int>& out, std::string& err) {
+        return parse_int_array(value, out, err);
+    }
+
+    bool parse_hit_object(const Napi::Value& value, hit_object& out, std::string& err) {
+        if (!is_object(value)) {
+            err = "hit object must be an object";
+            return false;
+        }
+
+        Napi::Object obj = value.As<Napi::Object>();
+
+        if (!get_optional_int32(obj, "x", out.x, err) || !get_optional_int32(obj, "y", out.y, err) ||
+            !get_optional_int32(obj, "time", out.time, err) || !get_optional_int32(obj, "type", out.type, err) ||
+            !get_optional_int32(obj, "hitSound", out.hit_sound, err)) {
+            return false;
+        }
+
+        if (obj.Has("hitSample")) {
+            if (!parse_hit_sample(obj.Get("hitSample"), out.sample, err)) {
+                return false;
+            }
+        }
+
+        if (obj.Has("curveType")) {
+            Napi::Value value_curve = obj.Get("curveType");
+            if (!value_curve.IsString()) {
+                err = "curveType must be a string";
+                return false;
+            }
+            std::string curve = value_curve.As<Napi::String>();
+            if (!curve.empty()) {
+                out.curve_type = curve[0];
+            }
+        }
+
+        if (obj.Has("curvePoints")) {
+            if (!parse_curve_points(obj.Get("curvePoints"), out.curve_points, err)) {
+                return false;
+            }
+        }
+
+        if (!get_optional_int32(obj, "slides", out.slides, err) ||
+            !get_optional_double(obj, "length", out.length, err)) {
+            return false;
+        }
+
+        if (obj.Has("edgeSounds")) {
+            if (!parse_edge_sounds(obj.Get("edgeSounds"), out.edge_sounds, err)) {
+                return false;
+            }
+        }
+
+        if (obj.Has("edgeSets")) {
+            if (!parse_edge_sets(obj.Get("edgeSets"), out.edge_sets, err)) {
+                return false;
+            }
+        }
+
+        return get_optional_int32(obj, "endTime", out.end_time, err);
+    }
 
     Napi::Object general_to_js(Napi::Env& env, const general_section& s) {
         Napi::Object obj = Napi::Object::New(env);
@@ -299,6 +655,313 @@ namespace osu_bindings {
         return beatmap_to_js(env, instance->data);
     }
 
+    Napi::Value beatmap_get_by_key(Napi::Env& env, const osu_beatmap& data, const std::string& key) {
+        if (key == "version") {
+            return Napi::String::New(env, "v" + std::to_string(data.version));
+        }
+
+        if (key == "General")
+            return general_to_js(env, data.general);
+        if (key == "Editor")
+            return editor_to_js(env, data.editor);
+        if (key == "Metadata")
+            return metadata_to_js(env, data.metadata);
+        if (key == "Difficulty")
+            return difficulty_to_js(env, data.difficulty);
+        if (key == "Events") {
+            Napi::Object events = Napi::Object::New(env);
+            events.Set("background",
+                       data.background.has_value() ? background_to_js(env, *data.background) : env.Null());
+            events.Set("video", data.video.has_value() ? video_to_js(env, *data.video) : env.Null());
+            Napi::Array breaks = Napi::Array::New(env, data.breaks.size());
+            for (size_t i = 0; i < data.breaks.size(); i++) {
+                breaks.Set(static_cast<uint32_t>(i), break_to_js(env, data.breaks[i]));
+            }
+            events.Set("breaks", breaks);
+            return events;
+        }
+        if (key == "TimingPoints") {
+            Napi::Array arr = Napi::Array::New(env, data.timing_points.size());
+            for (size_t i = 0; i < data.timing_points.size(); i++) {
+                arr.Set(static_cast<uint32_t>(i), timing_point_to_js(env, data.timing_points[i]));
+            }
+            return arr;
+        }
+        if (key == "Colours")
+            return colours_to_js(env, data.colours);
+        if (key == "HitObjects") {
+            Napi::Array arr = Napi::Array::New(env, data.hit_objects.size());
+            for (size_t i = 0; i < data.hit_objects.size(); i++) {
+                arr.Set(static_cast<uint32_t>(i), hit_object_to_js(env, data.hit_objects[i]));
+            }
+            return arr;
+        }
+        return env.Undefined();
+    }
+
+    Napi::Value beatmap_parser_update(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        beatmap_instance* instance = get_ptr<beatmap_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (info.Length() < 2 || !is_object(info[1])) {
+            Napi::TypeError::New(env, "update patch must be an object").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        std::string err;
+        bool ok = instance->with_lock([&](osu_beatmap& data, beatmap_parser& parser) {
+            Napi::Object patch = info[1].As<Napi::Object>();
+
+            if (patch.Has("version")) {
+                if (!parse_version_value(patch.Get("version"), data.version, err)) {
+                    parser.last_error = err;
+                    return false;
+                }
+            }
+
+            if (patch.Has("General")) {
+                Napi::Value value = patch.Get("General");
+                if (!is_object(value)) {
+                    parser.last_error = "General must be an object";
+                    return false;
+                }
+                if (!update_general_section(data.general, value.As<Napi::Object>(), err)) {
+                    parser.last_error = err;
+                    return false;
+                }
+            }
+
+            if (patch.Has("Editor")) {
+                Napi::Value value = patch.Get("Editor");
+                if (!is_object(value)) {
+                    parser.last_error = "Editor must be an object";
+                    return false;
+                }
+                if (!update_editor_section(data.editor, value.As<Napi::Object>(), err)) {
+                    parser.last_error = err;
+                    return false;
+                }
+            }
+
+            if (patch.Has("Metadata")) {
+                Napi::Value value = patch.Get("Metadata");
+                if (!is_object(value)) {
+                    parser.last_error = "Metadata must be an object";
+                    return false;
+                }
+                if (!update_metadata_section(data.metadata, value.As<Napi::Object>(), err)) {
+                    parser.last_error = err;
+                    return false;
+                }
+            }
+
+            if (patch.Has("Difficulty")) {
+                Napi::Value value = patch.Get("Difficulty");
+                if (!is_object(value)) {
+                    parser.last_error = "Difficulty must be an object";
+                    return false;
+                }
+                if (!update_difficulty_section(data.difficulty, value.As<Napi::Object>(), err)) {
+                    parser.last_error = err;
+                    return false;
+                }
+            }
+
+            if (patch.Has("Events")) {
+                Napi::Value value = patch.Get("Events");
+                if (!is_object(value)) {
+                    parser.last_error = "Events must be an object";
+                    return false;
+                }
+                Napi::Object events = value.As<Napi::Object>();
+
+                if (events.Has("background")) {
+                    Napi::Value bg_value = events.Get("background");
+                    if (bg_value.IsNull()) {
+                        data.background.reset();
+                    } else if (is_object(bg_value)) {
+                        if (!data.background.has_value()) {
+                            data.background = event_background{};
+                        }
+                        if (!update_background(*data.background, bg_value.As<Napi::Object>(), err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                    } else {
+                        parser.last_error = "Events.background must be an object or null";
+                        return false;
+                    }
+                }
+
+                if (events.Has("video")) {
+                    Napi::Value video_value = events.Get("video");
+                    if (video_value.IsNull()) {
+                        data.video.reset();
+                    } else if (is_object(video_value)) {
+                        if (!data.video.has_value()) {
+                            data.video = event_video{};
+                        }
+                        if (!update_video(*data.video, video_value.As<Napi::Object>(), err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                    } else {
+                        parser.last_error = "Events.video must be an object or null";
+                        return false;
+                    }
+                }
+
+                if (events.Has("breaks")) {
+                    Napi::Value breaks_value = events.Get("breaks");
+                    if (!breaks_value.IsArray()) {
+                        parser.last_error = "Events.breaks must be an array";
+                        return false;
+                    }
+                    Napi::Array arr = breaks_value.As<Napi::Array>();
+                    std::vector<event_break> next;
+                    next.reserve(arr.Length());
+                    for (uint32_t i = 0; i < arr.Length(); i++) {
+                        event_break item{};
+                        if (!parse_event_break(arr.Get(i), item, err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                        next.push_back(std::move(item));
+                    }
+                    data.breaks = std::move(next);
+                }
+            }
+
+            if (patch.Has("TimingPoints")) {
+                Napi::Value value = patch.Get("TimingPoints");
+                if (!value.IsArray()) {
+                    parser.last_error = "TimingPoints must be an array";
+                    return false;
+                }
+                Napi::Array arr = value.As<Napi::Array>();
+                std::vector<timing_point> next;
+                next.reserve(arr.Length());
+                for (uint32_t i = 0; i < arr.Length(); i++) {
+                    timing_point item{};
+                    if (!parse_timing_point(arr.Get(i), item, err)) {
+                        parser.last_error = err;
+                        return false;
+                    }
+                    next.push_back(std::move(item));
+                }
+                data.timing_points = std::move(next);
+            }
+
+            if (patch.Has("Colours")) {
+                Napi::Value value = patch.Get("Colours");
+                if (!is_object(value)) {
+                    parser.last_error = "Colours must be an object";
+                    return false;
+                }
+                Napi::Object colours = value.As<Napi::Object>();
+
+                if (colours.Has("Combos")) {
+                    Napi::Value combos_value = colours.Get("Combos");
+                    auto parse_combo = [](const Napi::Value& v, std::array<int, 3>& out, std::string& err) {
+                        return parse_color(v, out, err);
+                    };
+                    if (!combos_value.IsArray()) {
+                        parser.last_error = "Colours.Combos must be an array";
+                        return false;
+                    }
+                    Napi::Array arr = combos_value.As<Napi::Array>();
+                    std::vector<std::array<int, 3>> next;
+                    next.reserve(arr.Length());
+                    for (uint32_t i = 0; i < arr.Length(); i++) {
+                        std::array<int, 3> item{};
+                        if (!parse_combo(arr.Get(i), item, err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                        next.push_back(item);
+                    }
+                    data.colours.combos = std::move(next);
+                }
+
+                if (colours.Has("SliderTrackOverride")) {
+                    Napi::Value slider_track = colours.Get("SliderTrackOverride");
+                    if (slider_track.IsNull()) {
+                        data.colours.slider_track_override.reset();
+                    } else {
+                        std::array<int, 3> color{};
+                        if (!parse_color(slider_track, color, err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                        data.colours.slider_track_override = color;
+                    }
+                }
+
+                if (colours.Has("SliderBorder")) {
+                    Napi::Value slider_border = colours.Get("SliderBorder");
+                    if (slider_border.IsNull()) {
+                        data.colours.slider_border.reset();
+                    } else {
+                        std::array<int, 3> color{};
+                        if (!parse_color(slider_border, color, err)) {
+                            parser.last_error = err;
+                            return false;
+                        }
+                        data.colours.slider_border = color;
+                    }
+                }
+            }
+
+            if (patch.Has("HitObjects")) {
+                Napi::Value value = patch.Get("HitObjects");
+                if (!value.IsArray()) {
+                    parser.last_error = "HitObjects must be an array";
+                    return false;
+                }
+                Napi::Array arr = value.As<Napi::Array>();
+                std::vector<hit_object> next;
+                next.reserve(arr.Length());
+                for (uint32_t i = 0; i < arr.Length(); i++) {
+                    hit_object item{};
+                    if (!parse_hit_object(arr.Get(i), item, err)) {
+                        parser.last_error = err;
+                        return false;
+                    }
+                    next.push_back(std::move(item));
+                }
+                data.hit_objects = std::move(next);
+            }
+
+            return true;
+        });
+
+        if (!ok) {
+            std::string message = instance->parser.last_error.empty() ? "update failed" : instance->parser.last_error;
+            Napi::Error::New(env, message).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return Napi::Boolean::New(env, true);
+    }
+
+    Napi::Value beatmap_parser_get_by_name(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        beatmap_instance* instance = get_ptr<beatmap_instance>(info, 0);
+
+        if (instance == nullptr || info.Length() < 2 || !info[1].IsString()) {
+            return env.Undefined();
+        }
+
+        std::string key = info[1].As<Napi::String>();
+        return instance->with_lock(
+            [&](osu_beatmap& data, beatmap_parser&) { return beatmap_get_by_key(env, data, key); });
+    }
+
     void register_beatmap(Napi::Env env, Napi::Object exports) {
         exports.Set("create_beatmap_parser", Napi::Function::New(env, create_beatmap_parser));
         exports.Set("free_beatmap_parser", Napi::Function::New(env, free_beatmap_parser));
@@ -306,5 +969,7 @@ namespace osu_bindings {
         exports.Set("beatmap_parser_write", Napi::Function::New(env, beatmap_parser_write));
         exports.Set("beatmap_parser_last_error", Napi::Function::New(env, beatmap_parser_last_error));
         exports.Set("beatmap_parser_get", Napi::Function::New(env, beatmap_parser_get));
+        exports.Set("beatmap_parser_update", Napi::Function::New(env, beatmap_parser_update));
+        exports.Set("beatmap_parser_get_by_name", Napi::Function::New(env, beatmap_parser_get_by_name));
     }
 }

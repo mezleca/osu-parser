@@ -76,6 +76,7 @@ bool osdb_parser::parse(std::string location) {
         }
 
         const bool is_minimal = ends_with(version_string, "min");
+        data->version_string = version_string;
         std::vector<uint8_t> decompressed;
 
         if (version >= 7) {
@@ -177,13 +178,12 @@ bool osdb_parser::write() {
         return false;
     }
 
-    if (data->collections.empty()) {
-        last_error = "no collections to write";
+    const std::string version_string = data->version_string.empty() ? "o!dm8min" : data->version_string;
+    const int version = osdb_version_to_code(version_string);
+    if (version == 0) {
+        last_error = "invalid osdb version";
         return false;
     }
-
-    const std::string version_string = "o!dm8min";
-    const int version = osdb_version_to_code(version_string);
     const bool is_minimal = ends_with(version_string, "min");
 
     std::vector<uint8_t> content;

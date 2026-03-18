@@ -96,14 +96,21 @@ namespace osu_binary {
     inline uint32_t read_uleb128(binary_cursor& cursor) {
         uint32_t result = 0;
         int shift = 0;
+        bool has_more = true;
 
+        // ULEB128 for uint32_t must fit within 5 bytes.
         for (int i = 0; i < 5; i++) {
             uint8_t byte = read_u8(cursor);
             result |= static_cast<uint32_t>(byte & 0x7F) << shift;
             if ((byte & 0x80) == 0) {
+                has_more = false;
                 break;
             }
             shift += 7;
+        }
+
+        if (has_more) {
+            throw std::runtime_error("uleb128 overflow");
         }
 
         return result;

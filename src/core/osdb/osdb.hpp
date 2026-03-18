@@ -25,6 +25,7 @@ struct osdb_collection {
 };
 
 struct osdb_data {
+    std::string version_string;
     int64_t save_data = 0;
     std::string last_editor;
     int32_t count = 0;
@@ -33,6 +34,7 @@ struct osdb_data {
 
 // === parser ===
 struct osdb_parser {
+    // data is non-owning and managed by parser_base
     osdb_data* data;
     std::string location;
     std::string last_error;

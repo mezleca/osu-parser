@@ -24,6 +24,11 @@ template <typename DataT, typename ParserT> struct parser_base {
         return parser.write();
     }
 
+    template <typename Fn> auto with_lock(Fn fn) -> decltype(fn(data, parser)) {
+        std::lock_guard<std::mutex> lock(mutex);
+        return fn(data, parser);
+    }
+
     virtual void free_instance() {
         delete this;
     }

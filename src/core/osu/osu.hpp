@@ -101,7 +101,7 @@ struct osu_collection_db {
 };
 
 // === scores.db ===
-struct osu_score {
+struct osu_score_base {
     int32_t mode = 0;
     int32_t version = 0;
     std::string beatmap_md5;
@@ -119,10 +119,13 @@ struct osu_score {
     int32_t mods = 0;
     std::string life_bar_graph;
     int64_t timestamp = 0;
+    std::optional<double> additional_mod_info;
+};
+
+struct osu_score : osu_score_base {
     int32_t replay_data_length = -1;
     std::vector<uint8_t> replay_data;
     int64_t online_score_id = 0;
-    std::optional<double> additional_mod_info;
 };
 
 struct osu_scores_beatmap {
@@ -138,63 +141,49 @@ struct osu_scores_db {
 };
 
 // === replay (.osr) ===
-struct osu_replay {
-    int32_t mode = 0;
-    int32_t version = 0;
-    std::string beatmap_md5;
-    std::string player_name;
-    std::string replay_md5;
-    int32_t count_300 = 0;
-    int32_t count_100 = 0;
-    int32_t count_50 = 0;
-    int32_t count_geki = 0;
-    int32_t count_katu = 0;
-    int32_t count_miss = 0;
-    int32_t score = 0;
-    int32_t max_combo = 0;
-    int32_t perfect = 0;
-    int32_t mods = 0;
-    std::string life_bar_graph;
-    int64_t timestamp = 0;
+struct osu_replay : osu_score_base {
     int32_t replay_data_length = 0;
     std::vector<uint8_t> replay_data;
     int64_t online_score_id = 0;
-    std::optional<double> additional_mod_info;
 };
 
 // === parsers ===
 struct osu_db_parser {
+    // data is non-owning and managed by parser_base
     osu_legacy_database* data;
     std::string location;
     std::string last_error;
 
-    bool parse(std::string location);
+    bool parse(const std::string& location);
     bool write();
 };
 
 struct osu_collection_db_parser {
+    // data is non-owning and managed by parser_base
     osu_collection_db* data;
     std::string location;
     std::string last_error;
 
-    bool parse(std::string location);
+    bool parse(const std::string& location);
     bool write();
 };
 
 struct osu_scores_db_parser {
+    // data is non-owning and managed by parser_base
     osu_scores_db* data;
     std::string location;
     std::string last_error;
 
-    bool parse(std::string location);
+    bool parse(const std::string& location);
     bool write();
 };
 
 struct osu_replay_parser {
+    // data is non-owning and managed by parser_base
     osu_replay* data;
     std::string location;
     std::string last_error;
 
-    bool parse(std::string location);
+    bool parse(const std::string& location);
     bool write();
 };

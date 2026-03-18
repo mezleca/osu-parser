@@ -182,6 +182,27 @@ export interface OsuFileFormat {
     HitObjects: HitObject[];
 }
 
+export type BeatmapKey =
+    | "version"
+    | "General"
+    | "Editor"
+    | "Metadata"
+    | "Difficulty"
+    | "Events"
+    | "TimingPoints"
+    | "Colours"
+    | "HitObjects";
+
+export type DeepPartial<T> = T extends (infer U)[]
+    ? DeepPartial<U>[]
+    : T extends Uint8Array
+      ? Uint8Array
+      : T extends object
+        ? { [K in keyof T]?: DeepPartial<T[K]> }
+        : T;
+
+export type BeatmapUpdate = DeepPartial<Omit<OsuFileFormat, "version">> & { version?: string | number };
+
 export interface OsuIntFloatPair {
     mod_combination: number;
     star_rating: number;
@@ -208,7 +229,7 @@ export interface OsuDbBeatmap {
     hitcircle: number;
     sliders: number;
     spinners: number;
-    last_modification_time: number;
+    last_modification_time: bigint;
     approach_rate: number;
     circle_size: number;
     hp_drain: number;
@@ -237,10 +258,10 @@ export interface OsuDbBeatmap {
     online_offset: number;
     title_font: string;
     unplayed: number;
-    last_played: number;
+    last_played: bigint;
     is_osz2: number;
     folder_name: string;
-    last_checked: number;
+    last_checked: bigint;
     ignore_sounds: number;
     ignore_skin: number;
     disable_storyboard: number;
@@ -255,12 +276,24 @@ export interface OsuLegacyDatabase {
     version: number;
     folder_count: number;
     account_unlocked: number;
-    account_unlock_time: number;
+    account_unlock_time: bigint;
     player_name: string;
     beatmaps_count: number;
     beatmaps: OsuDbBeatmap[];
     permissions: number;
 }
+
+export type OsuDbKey =
+    | "version"
+    | "folder_count"
+    | "account_unlocked"
+    | "account_unlock_time"
+    | "player_name"
+    | "beatmaps_count"
+    | "beatmaps"
+    | "permissions";
+
+export type OsuDbUpdate = DeepPartial<OsuLegacyDatabase>;
 
 export interface OsuCollection {
     name: string;
@@ -273,6 +306,10 @@ export interface OsuCollectionDb {
     collections_count: number;
     collections: OsuCollection[];
 }
+
+export type OsuCollectionDbKey = "version" | "collections_count" | "collections";
+
+export type OsuCollectionDbUpdate = DeepPartial<OsuCollectionDb>;
 
 export interface OsuScore {
     mode: number;
@@ -291,10 +328,10 @@ export interface OsuScore {
     perfect: number;
     mods: number;
     life_bar_graph: string;
-    timestamp: number;
+    timestamp: bigint;
     replay_data_length: number;
     replay_data: Uint8Array;
-    online_score_id: number;
+    online_score_id: bigint;
     additional_mod_info: number | null;
 }
 
@@ -327,10 +364,10 @@ export interface OsuReplay {
     perfect: number;
     mods: number;
     life_bar_graph: string;
-    timestamp: number;
+    timestamp: bigint;
     replay_data_length: number;
     replay_data: Uint8Array;
-    online_score_id: number;
+    online_score_id: bigint;
     additional_mod_info: number | null;
 }
 
@@ -354,11 +391,15 @@ export interface OsdbCollection {
 }
 
 export interface OsdbData {
-    save_data: number;
+    save_data: bigint;
     last_editor: string;
     count: number;
     collections: OsdbCollection[];
 }
+
+export type OsdbKey = "save_data" | "last_editor" | "count" | "collections";
+
+export type OsdbUpdate = DeepPartial<OsdbData>;
 
 export interface NativeBindings {
     create_beatmap_parser(): bigint;
@@ -367,6 +408,8 @@ export interface NativeBindings {
     beatmap_parser_write(handle: bigint): boolean;
     beatmap_parser_last_error(handle: bigint): string | null;
     beatmap_parser_get(handle: bigint): OsuFileFormat;
+    beatmap_parser_update(handle: bigint, patch: BeatmapUpdate): boolean;
+    beatmap_parser_get_by_name(handle: bigint, key: BeatmapKey): unknown;
 
     create_osu_db_parser(): bigint;
     free_osu_db_parser(handle: bigint): void;
@@ -374,6 +417,8 @@ export interface NativeBindings {
     osu_db_parser_write(handle: bigint): boolean;
     osu_db_parser_last_error(handle: bigint): string | null;
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
+    osu_db_parser_update(handle: bigint, patch: OsuDbUpdate): boolean;
+    osu_db_parser_get_by_name(handle: bigint, key: OsuDbKey): unknown;
 
     create_osu_collection_db_parser(): bigint;
     free_osu_collection_db_parser(handle: bigint): void;
@@ -381,6 +426,8 @@ export interface NativeBindings {
     osu_collection_db_parser_write(handle: bigint): boolean;
     osu_collection_db_parser_last_error(handle: bigint): string | null;
     osu_collection_db_parser_get(handle: bigint): OsuCollectionDb;
+    osu_collection_db_parser_update(handle: bigint, patch: OsuCollectionDbUpdate): boolean;
+    osu_collection_db_parser_get_by_name(handle: bigint, key: OsuCollectionDbKey): unknown;
 
     create_osu_scores_db_parser(): bigint;
     free_osu_scores_db_parser(handle: bigint): void;
@@ -402,4 +449,6 @@ export interface NativeBindings {
     osdb_parser_write(handle: bigint): boolean;
     osdb_parser_last_error(handle: bigint): string | null;
     osdb_parser_get(handle: bigint): OsdbData;
+    osdb_parser_update(handle: bigint, patch: OsdbUpdate): boolean;
+    osdb_parser_get_by_name(handle: bigint, key: OsdbKey): unknown;
 }

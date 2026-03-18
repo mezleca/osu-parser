@@ -11,6 +11,7 @@ import {
     OsuScoresDbParser,
     OsdbParser
 } from "../dist/index";
+import { Worker } from "worker_threads";
 
 const ROOT = path.join(import.meta.dir, "data");
 
@@ -27,7 +28,7 @@ const withTempCopy = (source: string) => {
     const temp_dir = fs.mkdtempSync(path.join(os.tmpdir(), "osu-parser-"));
     const temp_path = path.join(temp_dir, path.basename(source));
     fs.copyFileSync(source, temp_path);
-    return temp_path;
+    return { temp_dir, temp_path };
 };
 
 const roundtrip = <T>(
@@ -35,20 +36,34 @@ const roundtrip = <T>(
     source: string,
     assert: (first: T, second: T) => void
 ) => {
-    const temp_path = withTempCopy(source);
+    const { temp_dir, temp_path } = withTempCopy(source);
+    let parser: ReturnType<typeof create> | null = null;
+    let parser2: ReturnType<typeof create> | null = null;
 
-    const parser = create();
-    parser.parse(temp_path);
-    const first = parser.get();
-    parser.write();
-    parser.free();
+    try {
+        parser = create();
+        parser.parse(temp_path);
+        const first = parser.get();
+        parser.write();
+        parser.free();
+        parser = null;
 
-    const parser2 = create();
-    parser2.parse(temp_path);
-    const second = parser2.get();
-    parser2.free();
+        parser2 = create();
+        parser2.parse(temp_path);
+        const second = parser2.get();
+        parser2.free();
+        parser2 = null;
 
-    assert(first, second);
+        assert(first, second);
+    } finally {
+        if (parser) {
+            parser.free();
+        }
+        if (parser2) {
+            parser2.free();
+        }
+        fs.rmSync(temp_dir, { recursive: true, force: true });
+    }
 };
 
 describe("beatmap parser", () => {
@@ -147,6 +162,72 @@ describe("beatmap parser", () => {
             }
         );
     });
+
+    test("getByName", () => {
+        const parser = new BeatmapParser();
+        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+
+        parser.parse(file_path);
+        expect(parser.getByName("version")).toBe("v14");
+        expect(parser.getByName("General")).toBeTruthy();
+        expect(parser.getByName("Events")).toBeTruthy();
+        expect(parser.getByName("TimingPoints")).toBeTruthy();
+        expect(parser.getByName("HitObjects")).toBeTruthy();
+        parser.free();
+    });
+
+    test("update fields and arrays", () => {
+        const parser = new BeatmapParser();
+        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+
+        parser.parse(file_path);
+        const before = parser.get();
+
+        parser.update({
+            General: { AudioFilename: "changed.mp3" },
+            Events: { background: null },
+            Colours: { SliderBorder: [255, 0, 0] }
+        });
+        parser.update({
+            TimingPoints: [
+                {
+                    time: 123,
+                    beatLength: 500,
+                    meter: 4,
+                    sampleSet: 0,
+                    sampleIndex: 0,
+                    volume: 100,
+                    uninherited: 1,
+                    effects: 0
+                }
+            ],
+            Colours: { Combos: [[1, 2, 3]] },
+            HitObjects: [before.HitObjects[0]]
+        });
+
+        const after = parser.get();
+
+        expect(after.General.AudioFilename).toBe("changed.mp3");
+        expect(after.Events.background).toBeNull();
+        expect(after.TimingPoints.length).toBe(1);
+        expect(after.Colours.SliderBorder).toEqual([255, 0, 0]);
+        expect(after.Colours.Combos.length).toBe(1);
+        expect(after.HitObjects.length).toBe(1);
+
+        parser.free();
+    });
+
+    test("update errors", () => {
+        const parser = new BeatmapParser();
+        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+
+        parser.parse(file_path);
+
+        expect(() => parser.update({ TimingPoints: {} as unknown as any })).toThrow();
+        expect(() => parser.update({ HitObjects: {} as unknown as any })).toThrow();
+
+        parser.free();
+    });
 });
 
 describe("osu!.db parser", () => {
@@ -186,6 +267,47 @@ describe("osu!.db parser", () => {
             }
         );
     });
+
+    test("getByName", () => {
+        const parser = new OsuDbParser();
+        const file_path = path.join(ROOT, files.osu_db);
+
+        parser.parse(file_path);
+        expect(parser.getByName("version")).toBe(20251102);
+        expect(parser.getByName("player_name")).toBe("mzle");
+        expect(parser.getByName("beatmaps")).toBeTruthy();
+        parser.free();
+    });
+
+    test("update fields and arrays", () => {
+        const parser = new OsuDbParser();
+        const file_path = path.join(ROOT, files.osu_db);
+
+        parser.parse(file_path);
+        const before = parser.get();
+
+        const beatmaps = [...before.beatmaps];
+        beatmaps[0] = { ...beatmaps[0], artist: "Updated Artist" };
+        parser.update({ player_name: "updated", beatmaps });
+
+        const after = parser.get();
+        expect(after.player_name).toBe("updated");
+        expect(after.beatmaps[0].artist).toBe("Updated Artist");
+        expect(after.beatmaps_count).toBe(before.beatmaps_count);
+
+        parser.free();
+    });
+
+    test("update errors", () => {
+        const parser = new OsuDbParser();
+        const file_path = path.join(ROOT, files.osu_db);
+
+        parser.parse(file_path);
+
+        expect(() => parser.update({ beatmaps: {} as unknown as any })).toThrow();
+
+        parser.free();
+    });
 });
 
 describe("collection.db parser", () => {
@@ -219,6 +341,49 @@ describe("collection.db parser", () => {
             }
         );
     });
+
+    test("getByName", () => {
+        const parser = new OsuCollectionDbParser();
+        const file_path = path.join(ROOT, files.collection_db);
+
+        parser.parse(file_path);
+        expect(parser.getByName("collections_count")).toBe(2);
+        expect(parser.getByName("collections")).toBeTruthy();
+        parser.free();
+    });
+
+    test("update fields and arrays", () => {
+        const parser = new OsuCollectionDbParser();
+        const file_path = path.join(ROOT, files.collection_db);
+
+        parser.parse(file_path);
+        const before = parser.get();
+
+        const collections = [...before.collections];
+        collections[0] = { ...collections[0], name: "updated-collection" };
+        collections[0] = { ...collections[0], beatmap_md5: [...collections[0].beatmap_md5, "abc123"] };
+        collections.push({ name: "new-collection", beatmaps_count: 0, beatmap_md5: [] });
+        collections.splice(1, 1);
+        parser.update({ collections });
+
+        const after = parser.get();
+        expect(after.collections_count).toBe(before.collections_count);
+        expect(after.collections[0].name).toBe("updated-collection");
+        expect(after.collections[0].beatmap_md5).toContain("abc123");
+        expect(after.collections.length).toBe(before.collections.length);
+
+        parser.free();
+    });
+
+    test("update errors", () => {
+        const parser = new OsuCollectionDbParser();
+        const file_path = path.join(ROOT, files.collection_db);
+
+        parser.parse(file_path);
+        expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+
+        parser.free();
+    });
 });
 
 describe("osdb parser", () => {
@@ -245,6 +410,56 @@ describe("osdb parser", () => {
                 expect(second.collections[0].beatmaps.length).toBe(first.collections[0].beatmaps.length);
             }
         );
+    });
+
+    test("getByName", () => {
+        const parser = new OsdbParser();
+        const file_path = path.join(ROOT, files.osdb);
+
+        parser.parse(file_path);
+        expect(parser.getByName("count")).toBeGreaterThan(0);
+        expect(parser.getByName("collections")).toBeTruthy();
+        parser.free();
+    });
+
+    test("update fields and arrays", () => {
+        const parser = new OsdbParser();
+        const file_path = path.join(ROOT, files.osdb);
+
+        parser.parse(file_path);
+        const before = parser.get();
+
+        const collections = [...before.collections];
+        collections[0] = { ...collections[0], name: "updated-collection" };
+        collections[0] = {
+            ...collections[0],
+            hash_only_beatmaps: [...collections[0].hash_only_beatmaps, "deadbeef"]
+        };
+        collections.push({
+            name: "new-collection",
+            online_id: 0,
+            beatmaps: [],
+            hash_only_beatmaps: []
+        });
+        parser.update({ last_editor: "updated", collections });
+
+        const after = parser.get();
+        expect(after.last_editor).toBe("updated");
+        expect(after.collections[0].name).toBe("updated-collection");
+        expect(after.collections[0].hash_only_beatmaps).toContain("deadbeef");
+        expect(after.collections.length).toBe(before.collections.length + 1);
+
+        parser.free();
+    });
+
+    test("update errors", () => {
+        const parser = new OsdbParser();
+        const file_path = path.join(ROOT, files.osdb);
+
+        parser.parse(file_path);
+        expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+
+        parser.free();
     });
 });
 
@@ -281,46 +496,66 @@ describe("replay parser", () => {
 
 describe("concurrency", () => {
     test("parse in parallel with separate instances", async () => {
-        const tasks: Array<() => void> = [];
+        const module_path = path.join(import.meta.dir, "..", "dist", "index.js");
+        const worker_source = `
+            const { parentPort, workerData } = require("worker_threads");
+            const parsers = require(workerData.modulePath);
+            let parser;
+            switch (workerData.kind) {
+                case "beatmap":
+                    parser = new parsers.BeatmapParser();
+                    break;
+                case "osu_db":
+                    parser = new parsers.OsuDbParser();
+                    break;
+                case "collection_db":
+                    parser = new parsers.OsuCollectionDbParser();
+                    break;
+                case "scores_db":
+                    parser = new parsers.OsuScoresDbParser();
+                    break;
+                case "osdb":
+                    parser = new parsers.OsdbParser();
+                    break;
+                default:
+                    throw new Error("unknown parser kind");
+            }
+            parser.parse(workerData.filePath);
+            const ok = !!parser.get();
+            parser.free();
+            parentPort.postMessage(ok);
+        `;
+
+        const run_worker = (kind: string, file_path: string) =>
+            new Promise<boolean>((resolve, reject) => {
+                const worker = new Worker(worker_source, {
+                    eval: true,
+                    workerData: { kind, filePath: file_path, modulePath: module_path }
+                });
+                worker.on("message", (value) => resolve(Boolean(value)));
+                worker.on("error", reject);
+                worker.on("exit", (code) => {
+                    if (code !== 0) {
+                        reject(new Error(`worker exited with code ${code}`));
+                    }
+                });
+            });
+
+        const tasks: Promise<boolean>[] = [];
 
         for (const name of files.beatmaps) {
-            tasks.push(() => {
-                const parser = new BeatmapParser();
-                parser.parse(path.join(ROOT, name));
-                expect(parser.get()).toBeTruthy();
-                parser.free();
-            });
+            tasks.push(run_worker("beatmap", path.join(ROOT, name)));
         }
 
-        tasks.push(() => {
-            const parser = new OsuDbParser();
-            parser.parse(path.join(ROOT, files.osu_db));
-            expect(parser.get()).toBeTruthy();
-            parser.free();
-        });
+        tasks.push(run_worker("osu_db", path.join(ROOT, files.osu_db)));
+        tasks.push(run_worker("collection_db", path.join(ROOT, files.collection_db)));
+        tasks.push(run_worker("scores_db", path.join(ROOT, files.scores_db)));
+        tasks.push(run_worker("osdb", path.join(ROOT, files.osdb)));
 
-        tasks.push(() => {
-            const parser = new OsuCollectionDbParser();
-            parser.parse(path.join(ROOT, files.collection_db));
-            expect(parser.get()).toBeTruthy();
-            parser.free();
-        });
-
-        tasks.push(() => {
-            const parser = new OsuScoresDbParser();
-            parser.parse(path.join(ROOT, files.scores_db));
-            expect(parser.get()).toBeTruthy();
-            parser.free();
-        });
-
-        tasks.push(() => {
-            const parser = new OsdbParser();
-            parser.parse(path.join(ROOT, files.osdb));
-            expect(parser.get()).toBeTruthy();
-            parser.free();
-        });
-
-        await Promise.all(tasks.map((task) => Promise.resolve().then(task)));
+        const results = await Promise.all(tasks);
+        for (const ok of results) {
+            expect(ok).toBe(true);
+        }
     });
 });
 

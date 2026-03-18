@@ -7,6 +7,22 @@
 #include <vector>
 
 namespace osu_bindings {
+    template <typename T> auto get_last_error_impl(T* instance, int) -> decltype(instance->parser.last_error) {
+        return instance->parser.last_error;
+    }
+
+    template <typename T> auto get_last_error_impl(T* instance, long) -> decltype(instance->last_error()) {
+        return instance->last_error();
+    }
+
+    inline std::string get_last_error_impl(...) {
+        return {};
+    }
+
+    template <typename T> std::string get_last_error(T* instance) {
+        return get_last_error_impl(instance, 0);
+    }
+
     template <typename T> T* get_ptr(const Napi::CallbackInfo& info, size_t index) {
         if (info.Length() <= index || !info[index].IsBigInt()) {
             return nullptr;
@@ -30,6 +46,7 @@ namespace osu_bindings {
     }
 
     template <typename T> Napi::Value free_instance(const Napi::CallbackInfo& info) {
+        // T must implement free_instance() for cleanup.
         T* instance = get_ptr<T>(info, 0);
 
         if (instance != nullptr) {
@@ -63,9 +80,9 @@ namespace osu_bindings {
 
         bool result = instance->write();
         if (!result) {
-            std::string message =
-                instance->parser.last_error.empty() ? "write not implemented" : instance->parser.last_error;
-            Napi::Error::New(env, message).ThrowAsJavaScriptException();
+            const std::string message = get_last_error(instance);
+            const std::string final_message = message.empty() ? "write not implemented" : message;
+            Napi::Error::New(env, final_message).ThrowAsJavaScriptException();
             return env.Undefined();
         }
 

@@ -7,11 +7,12 @@
 
 namespace osu_binary {
     inline bool gzip_decompress(const std::vector<uint8_t>& input, std::vector<uint8_t>& output) {
-        output.clear();
-
         if (input.empty()) {
             return true;
         }
+
+        const size_t max_decompressed_size = 256 * 1024 * 1024; // 256 MiB safety cap for inflate.
+        std::vector<uint8_t> temp_output;
 
         const uint8_t* data = input.data();
         const size_t size = input.size();
@@ -106,13 +107,17 @@ namespace osu_binary {
                 return false;
             }
 
-            const size_t chunk_size = 262144;
+            const size_t chunk_size = 262144; // 256 KiB inflate chunk.
             int status = MZ_OK;
 
             while (status != MZ_STREAM_END) {
-                const size_t start = output.size();
-                output.resize(start + chunk_size);
-                stream.next_out = output.data() + start;
+                const size_t start = temp_output.size();
+                if (start + chunk_size > max_decompressed_size) {
+                    mz_inflateEnd(&stream);
+                    return false;
+                }
+                temp_output.resize(start + chunk_size);
+                stream.next_out = temp_output.data() + start;
                 stream.avail_out = static_cast<mz_uint32>(chunk_size);
 
                 status = mz_inflate(&stream, MZ_NO_FLUSH);
@@ -121,7 +126,12 @@ namespace osu_binary {
                     return false;
                 }
 
-                output.resize(start + (chunk_size - stream.avail_out));
+                const size_t produced = chunk_size - stream.avail_out;
+                if (start + produced > max_decompressed_size) {
+                    mz_inflateEnd(&stream);
+                    return false;
+                }
+                temp_output.resize(start + produced);
             }
 
             mz_inflateEnd(&stream);
@@ -144,9 +154,9 @@ namespace osu_binary {
                                            (static_cast<mz_ulong>(data[footer_offset + 6]) << 16) |
                                            (static_cast<mz_ulong>(data[footer_offset + 7]) << 24);
 
-            const size_t member_output_offset = output.size() - static_cast<size_t>(stream.total_out);
-            const mz_ulong actual_crc =
-                mz_crc32(MZ_CRC32_INIT, output.data() + member_output_offset, static_cast<size_t>(stream.total_out));
+            const size_t member_output_offset = temp_output.size() - static_cast<size_t>(stream.total_out);
+            const mz_ulong actual_crc = mz_crc32(MZ_CRC32_INIT, temp_output.data() + member_output_offset,
+                                                 static_cast<size_t>(stream.total_out));
 
             if (actual_crc != expected_crc) {
                 return false;
@@ -162,6 +172,7 @@ namespace osu_binary {
             }
         }
 
+        output.swap(temp_output);
         return true;
     }
 
@@ -175,19 +186,19 @@ namespace osu_binary {
             return false;
         }
 
-        // GZIP header: ID1, ID2, CM, FLG=0, MTIME=0, XFL=0, OS=255 (unknown).
+        // GZIP header: ID1=0x1F, ID2=0x8B, CM=0x08 (deflate), FLG=0, MTIME=0, XFL=0, OS=255 (unknown).
         const uint8_t header[10] = {0x1F, 0x8B, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
 
-        output.clear();
-        output.insert(output.end(), std::begin(header), std::end(header));
+        std::vector<uint8_t> temp_output;
+        temp_output.insert(temp_output.end(), std::begin(header), std::end(header));
 
-        const size_t chunk_size = 262144;
+        const size_t chunk_size = 262144; // 256 KiB deflate chunk.
         int status = MZ_OK;
 
         while (status != MZ_STREAM_END) {
-            const size_t start = output.size();
-            output.resize(start + chunk_size);
-            stream.next_out = output.data() + start;
+            const size_t start = temp_output.size();
+            temp_output.resize(start + chunk_size);
+            stream.next_out = temp_output.data() + start;
             stream.avail_out = static_cast<mz_uint32>(chunk_size);
 
             status = mz_deflate(&stream, stream.avail_in ? MZ_NO_FLUSH : MZ_FINISH);
@@ -196,7 +207,7 @@ namespace osu_binary {
                 return false;
             }
 
-            output.resize(start + (chunk_size - stream.avail_out));
+            temp_output.resize(start + (chunk_size - stream.avail_out));
         }
 
         mz_deflateEnd(&stream);
@@ -205,15 +216,16 @@ namespace osu_binary {
         const mz_ulong crc = mz_crc32(MZ_CRC32_INIT, input.data(), input.size());
         const mz_ulong isize = static_cast<mz_ulong>(input.size() & 0xFFFFFFFFu);
 
-        output.push_back(static_cast<uint8_t>(crc & 0xFF));
-        output.push_back(static_cast<uint8_t>((crc >> 8) & 0xFF));
-        output.push_back(static_cast<uint8_t>((crc >> 16) & 0xFF));
-        output.push_back(static_cast<uint8_t>((crc >> 24) & 0xFF));
-        output.push_back(static_cast<uint8_t>(isize & 0xFF));
-        output.push_back(static_cast<uint8_t>((isize >> 8) & 0xFF));
-        output.push_back(static_cast<uint8_t>((isize >> 16) & 0xFF));
-        output.push_back(static_cast<uint8_t>((isize >> 24) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>(crc & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((crc >> 8) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((crc >> 16) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((crc >> 24) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>(isize & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((isize >> 8) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((isize >> 16) & 0xFF));
+        temp_output.push_back(static_cast<uint8_t>((isize >> 24) & 0xFF));
 
+        output.swap(temp_output);
         return true;
     }
 }
