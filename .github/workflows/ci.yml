@@ -56,10 +56,5 @@ jobs:
             - name: install dependencies
               run: bun install
 
-            - name: build (pull request)
-              if: github.event_name == 'pull_request'
-              run: bun run build
-
-            - name: test (main)
-              if: github.event_name == 'push'
+            - name: test
               run: bun test
