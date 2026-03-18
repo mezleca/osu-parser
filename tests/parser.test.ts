@@ -292,6 +292,32 @@ describe("osu!.db parser", () => {
         }
     });
 
+    test("get_by_md5 helpers", async () => {
+        const parser = new OsuDbParser();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            const first = data.beatmaps[0];
+
+            const full = parser.get_by_md5(first.md5);
+            expect(full?.md5).toBe(first.md5);
+
+            const minimal = parser.get_minimal_by_md5(first.md5);
+            expect(minimal?.md5).toBe(first.md5);
+            expect(minimal?.beatmap_id).toBe(first.beatmap_id);
+            expect((minimal as any)?.difficulty_id).toBeUndefined();
+
+            const by_set = parser.get_by_beatmapset_id(first.beatmap_id);
+            expect(by_set.length).toBeGreaterThan(0);
+
+            const by_diff = parser.get_by_difficulty_id(first.difficulty_id);
+            expect(by_diff?.md5).toBe(first.md5);
+        } finally {
+            parser.free();
+        }
+    });
+
     test("update fields and arrays", async () => {
         const parser = new OsuDbParser();
         try {
