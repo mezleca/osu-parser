@@ -1,11 +1,11 @@
-#include "osdb.hpp"
-
-#include "utils/binary.hpp"
 
 #include <algorithm>
 #include <chrono>
 #include <cstring>
-#include <zlib.h>
+
+#include "osdb.hpp"
+#include "utils/binary.hpp"
+#include "utils/gzip.hpp"
 
 static bool ends_with(const std::string& value, const char* suffix) {
     const size_t suffix_len = std::strlen(suffix);
@@ -49,74 +49,6 @@ static int osdb_version_to_code(const std::string& version) {
     return 0;
 }
 
-static bool gzip_decompress(const std::vector<uint8_t>& input, std::vector<uint8_t>& output) {
-    if (input.empty()) {
-        output.clear();
-        return true;
-    }
-
-    z_stream stream{};
-    stream.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input.data()));
-    stream.avail_in = static_cast<uInt>(input.size());
-
-    if (inflateInit2(&stream, 16 + MAX_WBITS) != Z_OK) {
-        return false;
-    }
-
-    const size_t chunk_size = 262144;
-    output.clear();
-    int status = Z_OK;
-
-    while (status != Z_STREAM_END) {
-        const size_t start = output.size();
-        output.resize(start + chunk_size);
-        stream.next_out = reinterpret_cast<Bytef*>(output.data() + start);
-        stream.avail_out = static_cast<uInt>(chunk_size);
-
-        status = inflate(&stream, Z_NO_FLUSH);
-        if (status != Z_OK && status != Z_STREAM_END) {
-            inflateEnd(&stream);
-            return false;
-        }
-
-        output.resize(start + (chunk_size - stream.avail_out));
-    }
-
-    inflateEnd(&stream);
-    return true;
-}
-
-static bool gzip_compress(const std::vector<uint8_t>& input, std::vector<uint8_t>& output) {
-    z_stream stream{};
-    stream.next_in = const_cast<Bytef*>(reinterpret_cast<const Bytef*>(input.data()));
-    stream.avail_in = static_cast<uInt>(input.size());
-
-    if (deflateInit2(&stream, Z_BEST_COMPRESSION, Z_DEFLATED, 16 + MAX_WBITS, 8, Z_DEFAULT_STRATEGY) != Z_OK) {
-        return false;
-    }
-
-    const size_t chunk_size = 262144;
-    output.clear();
-    int status = Z_OK;
-
-    while (status != Z_STREAM_END) {
-        const size_t start = output.size();
-        output.resize(start + chunk_size);
-        stream.next_out = reinterpret_cast<Bytef*>(output.data() + start);
-        stream.avail_out = static_cast<uInt>(chunk_size);
-
-        status = deflate(&stream, stream.avail_in ? Z_NO_FLUSH : Z_FINISH);
-        if (status != Z_OK && status != Z_STREAM_END) {
-            deflateEnd(&stream);
-            return false;
-        }
-
-        output.resize(start + (chunk_size - stream.avail_out));
-    }
-
-    deflateEnd(&stream);
-    return true;
-}
 
 bool osdb_parser::parse(std::string location) {
     if (data == nullptr) {
@@ -149,7 +81,7 @@ bool osdb_parser::parse(std::string location) {
 
         if (version >= 7) {
             std::vector<uint8_t> compressed(buffer.begin() + static_cast<std::ptrdiff_t>(cursor.offset), buffer.end());
-            if (!gzip_decompress(compressed, decompressed)) {
+            if (!osu_binary::gzip_decompress(compressed, decompressed)) {
                 last_error = "failed to decompress osdb data";
                 *data = osdb_data();
                 return false;
@@ -321,7 +253,7 @@ bool osdb_parser::write() {
 
     if (version >= 7) {
         std::vector<uint8_t> compressed;
-        if (!gzip_compress(content, compressed)) {
+        if (!osu_binary::gzip_compress(content, compressed)) {
             last_error = "failed to compress osdb data";
             return false;
         }

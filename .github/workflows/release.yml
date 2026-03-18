@@ -18,6 +18,8 @@ jobs:
         steps:
             - name: checkout
               uses: actions/checkout@v4
+              with:
+                  submodules: recursive
 
             - name: install system dependencies (ubuntu)
               if: runner.os == 'Linux'
