@@ -35,7 +35,7 @@ struct osdb_data {
 struct osdb_parser {
     osdb_data* data;
     std::string location;
-    std::vector<uint8_t> buffer;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();

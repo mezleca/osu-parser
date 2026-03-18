@@ -1,0 +1,11 @@
+{
+    "extends": "../tsconfig.json",
+    "compilerOptions": {
+        "noEmit": true,
+        "rootDir": ".",
+        "module": "ES2020",
+        "moduleResolution": "Bundler",
+        "types": ["bun-types"]
+    },
+    "include": ["**/*.ts"]
+}

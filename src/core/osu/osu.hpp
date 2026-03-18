@@ -85,7 +85,6 @@ struct osu_legacy_database {
     int32_t beatmaps_count = 0;
     std::vector<osu_db_beatmap> beatmaps;
     int32_t permissions = 0;
-    std::vector<uint8_t> buffer;
 };
 
 // === collection.db ===
@@ -99,7 +98,6 @@ struct osu_collection_db {
     int32_t version = 0;
     int32_t collections_count = 0;
     std::vector<osu_collection> collections;
-    std::vector<uint8_t> buffer;
 };
 
 // === scores.db ===
@@ -137,7 +135,6 @@ struct osu_scores_db {
     int32_t version = 0;
     int32_t beatmaps_count = 0;
     std::vector<osu_scores_beatmap> beatmaps;
-    std::vector<uint8_t> buffer;
 };
 
 // === replay (.osr) ===
@@ -163,13 +160,13 @@ struct osu_replay {
     std::vector<uint8_t> replay_data;
     int64_t online_score_id = 0;
     std::optional<double> additional_mod_info;
-    std::vector<uint8_t> buffer;
 };
 
 // === parsers ===
 struct osu_db_parser {
     osu_legacy_database* data;
     std::string location;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();
@@ -178,6 +175,7 @@ struct osu_db_parser {
 struct osu_collection_db_parser {
     osu_collection_db* data;
     std::string location;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();
@@ -186,6 +184,7 @@ struct osu_collection_db_parser {
 struct osu_scores_db_parser {
     osu_scores_db* data;
     std::string location;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();
@@ -194,6 +193,7 @@ struct osu_scores_db_parser {
 struct osu_replay_parser {
     osu_replay* data;
     std::string location;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();

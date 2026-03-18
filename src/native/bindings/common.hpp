@@ -1,7 +1,10 @@
 #pragma once
 
+#include <cstring>
 #include <napi.h>
+#include <optional>
 #include <string>
+#include <vector>
 
 namespace osu_bindings {
     template <typename T> T* get_ptr(const Napi::CallbackInfo& info, size_t index) {
@@ -11,6 +14,7 @@ namespace osu_bindings {
 
         bool lossless = false;
         uint64_t value = info[index].As<Napi::BigInt>().Uint64Value(&lossless);
+
         if (!lossless || value == 0) {
             return nullptr;
         }
@@ -53,10 +57,47 @@ namespace osu_bindings {
         T* instance = get_ptr<T>(info, 0);
 
         if (instance == nullptr) {
-            return Napi::Boolean::New(env, false);
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
         }
 
         bool result = instance->write();
-        return Napi::Boolean::New(env, result);
+        if (!result) {
+            std::string message =
+                instance->parser.last_error.empty() ? "write not implemented" : instance->parser.last_error;
+            Napi::Error::New(env, message).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return Napi::Boolean::New(env, true);
+    }
+
+    template <typename T> Napi::Value last_error_instance(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        T* instance = get_ptr<T>(info, 0);
+
+        if (instance == nullptr) {
+            return env.Null();
+        }
+
+        return Napi::String::New(env, instance->parser.last_error);
+    }
+
+    inline Napi::Value bytes_to_uint8array(Napi::Env env, const std::vector<uint8_t>& bytes) {
+        Napi::ArrayBuffer buffer = Napi::ArrayBuffer::New(env, bytes.size());
+
+        if (!bytes.empty()) {
+            std::memcpy(buffer.Data(), bytes.data(), bytes.size());
+        }
+
+        return Napi::Uint8Array::New(env, bytes.size(), buffer, 0);
+    }
+
+    inline Napi::Value optional_double_to_js(Napi::Env env, const std::optional<double>& value) {
+        if (value.has_value()) {
+            return Napi::Number::New(env, value.value());
+        }
+
+        return env.Null();
     }
 }

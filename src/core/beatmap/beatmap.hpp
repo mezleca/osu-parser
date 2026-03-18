@@ -200,7 +200,7 @@ inline const std::unordered_set<std::string>& get_special_keys() {
 struct beatmap_parser {
     osu_beatmap* data;
     std::string location;
-    std::vector<uint8_t> buffer;
+    std::string last_error;
 
     bool parse(std::string location);
     bool write();

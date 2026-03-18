@@ -11,7 +11,7 @@
         "build": "bun scripts/build.ts native && tsc",
         "format": "prettier --write . --ignore-unknown",
         "format:clang": "clang-format -i $(rg --files -g '*.{h,hpp,cpp,cc,cxx}' src)",
-        "example": "bun run examples/basic.ts"
+        "test": "bun run build && bun test"
     },
     "files": [
         "dist/index.js",
@@ -23,8 +23,8 @@
         "prebuilds/"
     ],
     "devDependencies": {
-        "@types/node": "^24.10.4",
-        "bun-types": "^1.3.9",
+        "@types/node": "^25.5.0",
+        "bun-types": "latest",
         "cmake-js": "^7.4.0",
         "node-addon-api": "^8.5.0",
         "prettier": "^3.6.2",

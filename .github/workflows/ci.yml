@@ -1,0 +1,65 @@
+name: ci
+on:
+    push:
+        branches:
+            - main
+    pull_request:
+
+jobs:
+    build-test:
+        strategy:
+            matrix:
+                os: [ubuntu-latest, windows-latest]
+        runs-on: ${{ matrix.os }}
+        steps:
+            - name: checkout
+              uses: actions/checkout@v4
+
+            - name: install system dependencies (ubuntu)
+              if: runner.os == 'Linux'
+              run: |
+                  sudo apt-get update
+                  sudo apt-get install -y build-essential cmake ninja-build
+
+            - name: install system dependencies (windows)
+              if: runner.os == 'Windows'
+              run: choco install ninja
+
+            - name: setup MSVC environment
+              if: runner.os == 'Windows'
+              uses: ilammy/msvc-dev-cmd@v1
+
+            - name: cache LLVM
+              if: runner.os == 'Windows'
+              id: cache-llvm
+              uses: actions/cache@v4
+              with:
+                  path: C:\Program Files\LLVM
+                  key: ${{ runner.os }}-llvm-20.1.0
+
+            - name: install LLVM and Clang
+              if: runner.os == 'Windows' && steps.cache-llvm.outputs.cache-hit != 'true'
+              uses: KyleMayes/install-llvm-action@v2
+              with:
+                  version: "20.1.0"
+
+            - name: setup Node.js
+              uses: actions/setup-node@v4
+              with:
+                  node-version: "22"
+
+            - name: setup Bun
+              uses: oven-sh/setup-bun@v2
+              with:
+                  bun-version: latest
+
+            - name: install dependencies
+              run: bun install
+
+            - name: build (pull request)
+              if: github.event_name == 'pull_request'
+              run: bun run build
+
+            - name: test (main)
+              if: github.event_name == 'push'
+              run: bun test
