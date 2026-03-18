@@ -652,7 +652,7 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return beatmap_to_js(env, instance->data);
+        return instance->with_lock([&](osu_beatmap& data, beatmap_parser&) { return beatmap_to_js(env, data); });
     }
 
     Napi::Value beatmap_get_by_key(Napi::Env& env, const osu_beatmap& data, const std::string& key) {

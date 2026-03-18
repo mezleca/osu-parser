@@ -311,7 +311,7 @@ export type OsuCollectionDbKey = "version" | "collections_count" | "collections"
 
 export type OsuCollectionDbUpdate = DeepPartial<OsuCollectionDb>;
 
-export interface OsuScore {
+export interface OsuScoreBase {
     mode: number;
     version: number;
     beatmap_md5: string;
@@ -334,6 +334,8 @@ export interface OsuScore {
     online_score_id: bigint;
     additional_mod_info: number | null;
 }
+
+export interface OsuScore extends OsuScoreBase {}
 
 export interface OsuScoresBeatmap {
     beatmap_md5: string;
@@ -347,29 +349,7 @@ export interface OsuScoresDb {
     beatmaps: OsuScoresBeatmap[];
 }
 
-export interface OsuReplay {
-    mode: number;
-    version: number;
-    beatmap_md5: string;
-    player_name: string;
-    replay_md5: string;
-    count_300: number;
-    count_100: number;
-    count_50: number;
-    count_geki: number;
-    count_katu: number;
-    count_miss: number;
-    score: number;
-    max_combo: number;
-    perfect: number;
-    mods: number;
-    life_bar_graph: string;
-    timestamp: bigint;
-    replay_data_length: number;
-    replay_data: Uint8Array;
-    online_score_id: bigint;
-    additional_mod_info: number | null;
-}
+export interface OsuReplay extends OsuScoreBase {}
 
 export interface OsdbBeatmap {
     difficulty_id: number;
@@ -391,13 +371,14 @@ export interface OsdbCollection {
 }
 
 export interface OsdbData {
+    version_string: string;
     save_data: bigint;
     last_editor: string;
     count: number;
     collections: OsdbCollection[];
 }
 
-export type OsdbKey = "save_data" | "last_editor" | "count" | "collections";
+export type OsdbKey = "version_string" | "save_data" | "last_editor" | "count" | "collections";
 
 export type OsdbUpdate = DeepPartial<OsdbData>;
 

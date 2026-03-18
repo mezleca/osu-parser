@@ -137,7 +137,12 @@ namespace osu_bindings {
         uint64_t handle = 0;
         void* ptr = nullptr;
 
-        explicit handle_ref(uint64_t handle_value) : handle(handle_value), ptr(retain_handle(handle_value)) {
+        explicit handle_ref(uint64_t handle_value) {
+            void* retained = retain_handle(handle_value);
+            if (retained != nullptr) {
+                handle = handle_value;
+                ptr = retained;
+            }
         }
 
         handle_ref(const handle_ref&) = delete;

@@ -197,9 +197,11 @@ bool osdb_parser::write() {
                                                              std::chrono::system_clock::now().time_since_epoch())
                                                              .count());
 
+    data->count = static_cast<int32_t>(data->collections.size());
+
     osu_binary::write_i64(content, save_time);
     osu_binary::write_string2(content, data->last_editor);
-    osu_binary::write_i32(content, static_cast<int32_t>(data->collections.size()));
+    osu_binary::write_i32(content, data->count);
 
     for (const auto& collection : data->collections) {
         osu_binary::write_string2(content, collection.name);

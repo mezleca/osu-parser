@@ -176,6 +176,9 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
     if (has_entry_size && beatmap.entry_size.has_value()) {
         const size_t bytes_read = cursor.offset - entry_start;
         const int32_t entry_size = beatmap.entry_size.value();
+        if (entry_size <= 0 || static_cast<size_t>(entry_size) < bytes_read) {
+            throw std::runtime_error("invalid beatmap entry size");
+        }
         if (entry_size > 0 && static_cast<size_t>(entry_size) > bytes_read) {
             osu_binary::skip(cursor, static_cast<size_t>(entry_size) - bytes_read);
         }
@@ -247,14 +250,14 @@ bool osu_db_parser::write() {
     const bool old_diff_format = version < 20140609;
     const bool use_float_star = version >= 20250107;
 
-    const int32_t beatmaps_count = static_cast<int32_t>(data->beatmaps.size());
+    data->beatmaps_count = static_cast<int32_t>(data->beatmaps.size());
 
     osu_binary::write_i32(buffer, version);
     osu_binary::write_i32(buffer, data->folder_count);
     osu_binary::write_bool(buffer, data->account_unlocked != 0);
     osu_binary::write_i64(buffer, data->account_unlock_time);
     osu_binary::write_string(buffer, data->player_name);
-    osu_binary::write_i32(buffer, beatmaps_count);
+    osu_binary::write_i32(buffer, data->beatmaps_count);
 
     for (const auto& beatmap : data->beatmaps) {
         std::vector<uint8_t> entry;

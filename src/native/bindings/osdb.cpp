@@ -95,6 +95,7 @@ namespace osu_bindings {
     Napi::Object osdb_data_to_js(Napi::Env& env, const osdb_data& data) {
         Napi::Object obj = Napi::Object::New(env);
 
+        obj.Set("version_string", data.version_string);
         obj.Set("save_data", Napi::BigInt::New(env, data.save_data));
         obj.Set("last_editor", data.last_editor);
         obj.Set("count", data.count);
@@ -137,10 +138,12 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return osdb_data_to_js(env, instance->data);
+        return instance->with_lock([&](osdb_data& data, osdb_parser&) { return osdb_data_to_js(env, data); });
     }
 
     Napi::Value osdb_get_by_key(Napi::Env& env, const osdb_data& data, const std::string& key) {
+        if (key == "version_string")
+            return Napi::String::New(env, data.version_string);
         if (key == "save_data")
             return Napi::BigInt::New(env, data.save_data);
         if (key == "last_editor")

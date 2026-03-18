@@ -38,7 +38,7 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return replay_to_js(env, instance->data);
+        return instance->with_lock([&](osu_replay& data, osu_replay_parser&) { return replay_to_js(env, data); });
     }
 
     void register_replay(Napi::Env env, Napi::Object exports) {

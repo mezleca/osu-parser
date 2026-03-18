@@ -109,18 +109,16 @@ namespace osu_binary {
     }
 
     inline float read_f32(binary_cursor& cursor) {
+        uint32_t bits = read_u32(cursor);
         float value = 0.0f;
-        ensure_range(cursor, sizeof(value));
-        std::memcpy(&value, cursor.buffer->data() + cursor.offset, sizeof(value));
-        cursor.offset += sizeof(value);
+        std::memcpy(&value, &bits, sizeof(value));
         return value;
     }
 
     inline double read_f64(binary_cursor& cursor) {
+        uint64_t bits = read_u64(cursor);
         double value = 0.0;
-        ensure_range(cursor, sizeof(value));
-        std::memcpy(&value, cursor.buffer->data() + cursor.offset, sizeof(value));
-        cursor.offset += sizeof(value);
+        std::memcpy(&value, &bits, sizeof(value));
         return value;
     }
 
@@ -136,6 +134,9 @@ namespace osu_binary {
         // ULEB128 for uint32_t must fit within 5 bytes.
         for (int i = 0; i < 5; i++) {
             uint8_t byte = read_u8(cursor);
+            if (i == 4 && (byte & 0x7F) > 0x0F) {
+                throw std::runtime_error("uleb128 overflow");
+            }
             result |= static_cast<uint32_t>(byte & 0x7F) << shift;
             if ((byte & 0x80) == 0) {
                 has_more = false;
@@ -182,6 +183,10 @@ namespace osu_binary {
     }
 
     template <typename T> inline void append_integral(std::vector<uint8_t>& out, T value) {
+        static_assert(std::is_integral_v<T>, "append_integral expects integral types");
+        if (!is_little_endian()) {
+            value = byteswap(value);
+        }
         const size_t start = out.size();
         out.resize(start + sizeof(T));
         std::memcpy(out.data() + start, &value, sizeof(T));
@@ -220,11 +225,15 @@ namespace osu_binary {
     }
 
     inline void write_f32(std::vector<uint8_t>& out, float value) {
-        append_integral(out, value);
+        uint32_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        append_integral(out, bits);
     }
 
     inline void write_f64(std::vector<uint8_t>& out, double value) {
-        append_integral(out, value);
+        uint64_t bits = 0;
+        std::memcpy(&bits, &value, sizeof(bits));
+        append_integral(out, bits);
     }
 
     inline void write_bool(std::vector<uint8_t>& out, bool value) {

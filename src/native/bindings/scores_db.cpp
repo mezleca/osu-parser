@@ -70,7 +70,8 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return scores_db_to_js(env, instance->data);
+        return instance->with_lock(
+            [&](osu_scores_db& data, osu_scores_db_parser&) { return scores_db_to_js(env, data); });
     }
 
     void register_scores_db(Napi::Env env, Napi::Object exports) {

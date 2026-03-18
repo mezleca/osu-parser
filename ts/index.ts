@@ -78,8 +78,10 @@ class Parser<TGet> {
     }
 
     free(): void {
-        this.fns.free(this.handle);
-        this.handle = 0n;
+        if (this.handle !== 0n) {
+            this.fns.free(this.handle);
+            this.handle = 0n;
+        }
     }
 
     protected assert_handle() {
@@ -101,7 +103,11 @@ class UpdatableParser<TGet extends object, TKey extends keyof TGet & string, TUp
 
     update(patch: TUpdate): this {
         this.assert_handle();
-        this.fns.update!(this.handle, patch);
+        const ok = this.fns.update!(this.handle, patch);
+        if (!ok) {
+            const message = this.fns.last_error(this.handle);
+            throw new Error(message ? `${this.prefix}.update failed: ${message}` : `${this.prefix}.update failed`);
+        }
         return this;
     }
 }

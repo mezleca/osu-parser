@@ -74,76 +74,85 @@ const roundtrip = async <T>(
 describe("beatmap parser", () => {
     test("parse beatmaps/243.osu (v3)", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/243.osu");
-        await parser.parse(file_path);
+        try {
+            const file_path = path.join(ROOT, "beatmaps/243.osu");
+            await parser.parse(file_path);
 
-        const data = parser.get();
+            const data = parser.get();
 
-        expect(data.version).toBe("v3");
-        expect(data.General.AudioFilename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.mp3");
-        expect(data.General.PreviewTime).toBe(91764);
-        expect(data.General.Countdown).toBe(1);
-        expect(data.Metadata.Title).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita");
-        expect(data.Metadata.Artist).toBe("IOSYS");
-        expect(data.Metadata.Creator).toBe("DJPop");
-        expect(data.Difficulty.SliderMultiplier).toBeCloseTo(0.5, 5);
-        expect(data.Events.background?.filename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.png");
-        expect(data.TimingPoints.length).toBe(1);
-        expect(data.TimingPoints[0].time).toBe(0);
-        expect(data.TimingPoints[0].beatLength).toBeCloseTo(352.941176470588, 6);
-        expect(data.HitObjects.length).toBeGreaterThan(0);
+            expect(data.version).toBe("v3");
+            expect(data.General.AudioFilename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.mp3");
+            expect(data.General.PreviewTime).toBe(91764);
+            expect(data.General.Countdown).toBe(1);
+            expect(data.Metadata.Title).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita");
+            expect(data.Metadata.Artist).toBe("IOSYS");
+            expect(data.Metadata.Creator).toBe("DJPop");
+            expect(data.Difficulty.SliderMultiplier).toBeCloseTo(0.5, 5);
+            expect(data.Events.background?.filename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.png");
+            expect(data.TimingPoints.length).toBe(1);
+            expect(data.TimingPoints[0].time).toBe(0);
+            expect(data.TimingPoints[0].beatLength).toBeCloseTo(352.941176470588, 6);
+            expect(data.HitObjects.length).toBeGreaterThan(0);
 
-        const slider = data.HitObjects.find((obj) => (obj.type & 2) !== 0);
-        expect(slider).toBeTruthy();
+            const slider = data.HitObjects.find((obj) => (obj.type & 2) !== 0);
+            expect(slider).toBeTruthy();
 
-        if (slider) {
-            expect(slider.edgeSounds.length).toBe(slider.slides + 1);
-            expect(slider.edgeSets.length).toBe(slider.slides + 1);
-            expect(slider.hitSample).toBeTruthy();
+            if (slider) {
+                expect(slider.edgeSounds.length).toBe(slider.slides + 1);
+                expect(slider.edgeSets.length).toBe(slider.slides + 1);
+                expect(slider.hitSample).toBeTruthy();
+            }
+        } finally {
+            parser.free();
         }
-        parser.free();
     });
 
     test("parse beatmaps/1636774.osu (v14)", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
-        await parser.parse(file_path);
+        try {
+            const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+            await parser.parse(file_path);
 
-        const data = parser.get();
+            const data = parser.get();
 
-        expect(data.version).toBe("v14");
-        expect(data.General.SampleSet).toBe("Soft");
-        expect(data.General.Mode).toBe(0);
-        expect(data.Editor.BeatDivisor).toBe(4);
-        expect(data.Editor.GridSize).toBe(16);
-        expect(data.Metadata.Creator).toBe("Leaf");
-        expect(data.Events.background?.filename).toBe("bg22.jpg");
-        expect(data.Events.breaks.length).toBe(1);
-        expect(data.Events.breaks[0].startTime).toBe(197822);
-        expect(data.Events.breaks[0].endTime).toBe(207343);
-        expect(data.TimingPoints.length).toBeGreaterThan(1);
-        expect(data.TimingPoints[0].time).toBe(770);
-        expect(data.TimingPoints[0].beatLength).toBeCloseTo(315.789473684211, 6);
-        parser.free();
+            expect(data.version).toBe("v14");
+            expect(data.General.SampleSet).toBe("Soft");
+            expect(data.General.Mode).toBe(0);
+            expect(data.Editor.BeatDivisor).toBe(4);
+            expect(data.Editor.GridSize).toBe(16);
+            expect(data.Metadata.Creator).toBe("Leaf");
+            expect(data.Events.background?.filename).toBe("bg22.jpg");
+            expect(data.Events.breaks.length).toBe(1);
+            expect(data.Events.breaks[0].startTime).toBe(197822);
+            expect(data.Events.breaks[0].endTime).toBe(207343);
+            expect(data.TimingPoints.length).toBeGreaterThan(1);
+            expect(data.TimingPoints[0].time).toBe(770);
+            expect(data.TimingPoints[0].beatLength).toBeCloseTo(315.789473684211, 6);
+        } finally {
+            parser.free();
+        }
     });
 
     test("parse beatmaps/2303521.osu (v14 + video)", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/2303521.osu");
-        await parser.parse(file_path);
+        try {
+            const file_path = path.join(ROOT, "beatmaps/2303521.osu");
+            await parser.parse(file_path);
 
-        const data = parser.get();
+            const data = parser.get();
 
-        expect(data.version).toBe("v14");
-        expect(data.General.StackLeniency).toBeCloseTo(0.3, 6);
-        expect(data.Metadata.Title).toBe("Diamonds From Sierra Leone");
-        expect(data.Metadata.Creator).toBe("Herazu");
-        expect(data.Events.background?.filename).toBe("y.png");
-        expect(data.Events.video?.filename).toBe("Diamond Loop.mp4");
-        expect(data.TimingPoints.length).toBeGreaterThan(1);
-        expect(data.TimingPoints[0].time).toBe(12832);
-        expect(data.TimingPoints[0].beatLength).toBeCloseTo(617.919670442843, 6);
-        parser.free();
+            expect(data.version).toBe("v14");
+            expect(data.General.StackLeniency).toBeCloseTo(0.3, 6);
+            expect(data.Metadata.Title).toBe("Diamonds From Sierra Leone");
+            expect(data.Metadata.Creator).toBe("Herazu");
+            expect(data.Events.background?.filename).toBe("y.png");
+            expect(data.Events.video?.filename).toBe("Diamond Loop.mp4");
+            expect(data.TimingPoints.length).toBeGreaterThan(1);
+            expect(data.TimingPoints[0].time).toBe(12832);
+            expect(data.TimingPoints[0].beatLength).toBeCloseTo(617.919670442843, 6);
+        } finally {
+            parser.free();
+        }
     });
 
     test("roundtrip write", async () => {
@@ -164,84 +173,96 @@ describe("beatmap parser", () => {
 
     test("get_by_name", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
-        await parser.parse(file_path);
-        expect(parser.get_by_name("version")).toBe("v14");
-        expect(parser.get_by_name("General")).toBeTruthy();
-        expect(parser.get_by_name("Events")).toBeTruthy();
-        expect(parser.get_by_name("TimingPoints")).toBeTruthy();
-        expect(parser.get_by_name("HitObjects")).toBeTruthy();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+            await parser.parse(file_path);
+            expect(parser.get_by_name("version")).toBe("v14");
+            expect(parser.get_by_name("General")).toBeTruthy();
+            expect(parser.get_by_name("Events")).toBeTruthy();
+            expect(parser.get_by_name("TimingPoints")).toBeTruthy();
+            expect(parser.get_by_name("HitObjects")).toBeTruthy();
+        } finally {
+            parser.free();
+        }
     });
 
     test("update fields and arrays", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
-        await parser.parse(file_path);
-        const before = parser.get();
-        parser.update({
-            General: { AudioFilename: "changed.mp3" },
-            Events: { background: null },
-            Colours: { SliderBorder: [255, 0, 0] }
-        });
-        parser.update({
-            TimingPoints: [
-                {
-                    time: 123,
-                    beatLength: 500,
-                    meter: 4,
-                    sampleSet: 0,
-                    sampleIndex: 0,
-                    volume: 100,
-                    uninherited: 1,
-                    effects: 0
-                }
-            ],
-            Colours: { Combos: [[1, 2, 3]] },
-            HitObjects: [before.HitObjects[0]]
-        });
+        try {
+            const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+            await parser.parse(file_path);
+            const before = parser.get();
+            parser.update({
+                General: { AudioFilename: "changed.mp3" },
+                Events: { background: null },
+                Colours: { SliderBorder: [255, 0, 0] }
+            });
+            parser.update({
+                TimingPoints: [
+                    {
+                        time: 123,
+                        beatLength: 500,
+                        meter: 4,
+                        sampleSet: 0,
+                        sampleIndex: 0,
+                        volume: 100,
+                        uninherited: 1,
+                        effects: 0
+                    }
+                ],
+                Colours: { Combos: [[1, 2, 3]] },
+                HitObjects: [before.HitObjects[0]]
+            });
 
-        const after = parser.get();
+            const after = parser.get();
 
-        expect(after.General.AudioFilename).toBe("changed.mp3");
-        expect(after.Events.background).toBeNull();
-        expect(after.TimingPoints.length).toBe(1);
-        expect(after.Colours.SliderBorder).toEqual([255, 0, 0]);
-        expect(after.Colours.Combos.length).toBe(1);
-        expect(after.HitObjects.length).toBe(1);
-        parser.free();
+            expect(after.General.AudioFilename).toBe("changed.mp3");
+            expect(after.Events.background).toBeNull();
+            expect(after.TimingPoints.length).toBe(1);
+            expect(after.Colours.SliderBorder).toEqual([255, 0, 0]);
+            expect(after.Colours.Combos.length).toBe(1);
+            expect(after.HitObjects.length).toBe(1);
+        } finally {
+            parser.free();
+        }
     });
 
     test("update errors", async () => {
         const parser = new BeatmapParser();
-        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
-        await parser.parse(file_path);
-        expect(() => parser.update({ TimingPoints: {} as unknown as any })).toThrow();
-        expect(() => parser.update({ HitObjects: {} as unknown as any })).toThrow();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+            await parser.parse(file_path);
+            expect(() => parser.update({ TimingPoints: {} as unknown as any })).toThrow();
+            expect(() => parser.update({ HitObjects: {} as unknown as any })).toThrow();
+        } finally {
+            parser.free();
+        }
     });
 });
 
 describe("osu!.db parser", () => {
     test("parse file", async () => {
         const parser = new OsuDbParser();
-        const file_path = path.join(ROOT, files.osu_db);
-        await parser.parse(file_path);
-        const data = parser.get();
-        expect(data).toBeTruthy();
-        expect(data.version).toBe(20251102);
-        expect(data.player_name).toBe("mzle");
-        expect(data.beatmaps_count).toBe(47);
-        expect(Array.isArray(data.beatmaps)).toBe(true);
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            expect(data).toBeTruthy();
+            expect(data.version).toBe(20251102);
+            expect(data.player_name).toBe("mzle");
+            expect(data.beatmaps_count).toBe(47);
+            expect(Array.isArray(data.beatmaps)).toBe(true);
 
-        const first = data.beatmaps[0];
-        expect(first.artist).toBe("FRAM");
-        expect(first.title).toBe("Step for Joy");
-        expect(first.md5).toBe("8e66c5e88adb59774e4eccca702fe242");
-        expect(first.star_rating_standard.length).toBeGreaterThan(0);
-        expect(first.star_rating_standard[0].mod_combination).toBe(0);
-        expect(first.star_rating_standard[0].star_rating).toBeCloseTo(4.707488, 5);
-        parser.free();
+            const first = data.beatmaps[0];
+            expect(first.artist).toBe("FRAM");
+            expect(first.title).toBe("Step for Joy");
+            expect(first.md5).toBe("8e66c5e88adb59774e4eccca702fe242");
+            expect(first.star_rating_standard.length).toBeGreaterThan(0);
+            expect(first.star_rating_standard[0].mod_combination).toBe(0);
+            expect(first.star_rating_standard[0].star_rating).toBeCloseTo(4.707488, 5);
+        } finally {
+            parser.free();
+        }
     });
 
     test("roundtrip write", async () => {
@@ -260,55 +281,67 @@ describe("osu!.db parser", () => {
 
     test("get_by_name", async () => {
         const parser = new OsuDbParser();
-        const file_path = path.join(ROOT, files.osu_db);
-        await parser.parse(file_path);
-        expect(parser.get_by_name("version")).toBe(20251102);
-        expect(parser.get_by_name("player_name")).toBe("mzle");
-        expect(parser.get_by_name("beatmaps")).toBeTruthy();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            expect(parser.get_by_name("version")).toBe(20251102);
+            expect(parser.get_by_name("player_name")).toBe("mzle");
+            expect(parser.get_by_name("beatmaps")).toBeTruthy();
+        } finally {
+            parser.free();
+        }
     });
 
     test("update fields and arrays", async () => {
         const parser = new OsuDbParser();
-        const file_path = path.join(ROOT, files.osu_db);
-        await parser.parse(file_path);
-        const before = parser.get();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const before = parser.get();
 
-        const beatmaps = [...before.beatmaps];
-        beatmaps[0] = { ...beatmaps[0], artist: "Updated Artist" };
-        parser.update({ player_name: "updated", beatmaps });
+            const beatmaps = [...before.beatmaps];
+            beatmaps[0] = { ...beatmaps[0], artist: "Updated Artist" };
+            parser.update({ player_name: "updated", beatmaps });
 
-        const after = parser.get();
-        expect(after.player_name).toBe("updated");
-        expect(after.beatmaps[0].artist).toBe("Updated Artist");
-        expect(after.beatmaps_count).toBe(before.beatmaps_count);
-        parser.free();
+            const after = parser.get();
+            expect(after.player_name).toBe("updated");
+            expect(after.beatmaps[0].artist).toBe("Updated Artist");
+            expect(after.beatmaps_count).toBe(before.beatmaps_count);
+        } finally {
+            parser.free();
+        }
     });
 
     test("update errors", async () => {
         const parser = new OsuDbParser();
-        const file_path = path.join(ROOT, files.osu_db);
-        await parser.parse(file_path);
-        expect(() => parser.update({ beatmaps: {} as unknown as any })).toThrow();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            expect(() => parser.update({ beatmaps: {} as unknown as any })).toThrow();
+        } finally {
+            parser.free();
+        }
     });
 });
 
 describe("collection.db parser", () => {
     test("parse file", async () => {
         const parser = new OsuCollectionDbParser();
-        const file_path = path.join(ROOT, files.collection_db);
-        await parser.parse(file_path);
-        const data = parser.get();
-        expect(data).toBeTruthy();
-        expect(data.collections_count).toBe(2);
-        expect(Array.isArray(data.collections)).toBe(true);
+        try {
+            const file_path = path.join(ROOT, files.collection_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            expect(data).toBeTruthy();
+            expect(data.collections_count).toBe(2);
+            expect(Array.isArray(data.collections)).toBe(true);
 
-        const first = data.collections[0];
-        expect(first.name).toBe("glass beach");
-        expect(first.beatmaps_count).toBe(10);
-        expect(first.beatmap_md5[0]).toBe("6737a1d011bd8ea8b008aff294147f33");
-        parser.free();
+            const first = data.collections[0];
+            expect(first.name).toBe("glass beach");
+            expect(first.beatmaps_count).toBe(10);
+            expect(first.beatmap_md5[0]).toBe("6737a1d011bd8ea8b008aff294147f33");
+        } finally {
+            parser.free();
+        }
     });
 
     test("roundtrip write", async () => {
@@ -326,52 +359,64 @@ describe("collection.db parser", () => {
 
     test("get_by_name", async () => {
         const parser = new OsuCollectionDbParser();
-        const file_path = path.join(ROOT, files.collection_db);
-        await parser.parse(file_path);
-        expect(parser.get_by_name("collections_count")).toBe(2);
-        expect(parser.get_by_name("collections")).toBeTruthy();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.collection_db);
+            await parser.parse(file_path);
+            expect(parser.get_by_name("collections_count")).toBe(2);
+            expect(parser.get_by_name("collections")).toBeTruthy();
+        } finally {
+            parser.free();
+        }
     });
 
     test("update fields and arrays", async () => {
         const parser = new OsuCollectionDbParser();
-        const file_path = path.join(ROOT, files.collection_db);
-        await parser.parse(file_path);
-        const before = parser.get();
+        try {
+            const file_path = path.join(ROOT, files.collection_db);
+            await parser.parse(file_path);
+            const before = parser.get();
 
-        const collections = [...before.collections];
-        collections[0] = { ...collections[0], name: "updated-collection" };
-        collections[0] = { ...collections[0], beatmap_md5: [...collections[0].beatmap_md5, "abc123"] };
-        collections.push({ name: "new-collection", beatmaps_count: 0, beatmap_md5: [] });
-        collections.splice(1, 1);
-        parser.update({ collections });
+            const collections = [...before.collections];
+            collections[0] = { ...collections[0], name: "updated-collection" };
+            collections[0] = { ...collections[0], beatmap_md5: [...collections[0].beatmap_md5, "abc123"] };
+            collections.push({ name: "new-collection", beatmaps_count: 0, beatmap_md5: [] });
+            collections.splice(1, 1);
+            parser.update({ collections });
 
-        const after = parser.get();
-        expect(after.collections_count).toBe(before.collections_count);
-        expect(after.collections[0].name).toBe("updated-collection");
-        expect(after.collections[0].beatmap_md5).toContain("abc123");
-        expect(after.collections.length).toBe(before.collections.length);
-        parser.free();
+            const after = parser.get();
+            expect(after.collections_count).toBe(before.collections_count);
+            expect(after.collections[0].name).toBe("updated-collection");
+            expect(after.collections[0].beatmap_md5).toContain("abc123");
+            expect(after.collections.length).toBe(before.collections.length);
+        } finally {
+            parser.free();
+        }
     });
 
     test("update errors", async () => {
         const parser = new OsuCollectionDbParser();
-        const file_path = path.join(ROOT, files.collection_db);
-        await parser.parse(file_path);
-        expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.collection_db);
+            await parser.parse(file_path);
+            expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+        } finally {
+            parser.free();
+        }
     });
 });
 
 describe("osdb parser", () => {
     test("parse file", async () => {
         const parser = new OsdbParser();
-        const file_path = path.join(ROOT, files.osdb);
-        await parser.parse(file_path);
-        const data = parser.get();
-        expect(data).toBeTruthy();
-        expect(Array.isArray(data.collections)).toBe(true);
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.osdb);
+            await parser.parse(file_path);
+            const data = parser.get();
+            expect(data).toBeTruthy();
+            expect(Array.isArray(data.collections)).toBe(true);
+        } finally {
+            parser.free();
+        }
     });
 
     test("roundtrip write", async () => {
@@ -389,47 +434,56 @@ describe("osdb parser", () => {
 
     test("get_by_name", async () => {
         const parser = new OsdbParser();
-        const file_path = path.join(ROOT, files.osdb);
-        await parser.parse(file_path);
-        expect(parser.get_by_name("count")).toBeGreaterThan(0);
-        expect(parser.get_by_name("collections")).toBeTruthy();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.osdb);
+            await parser.parse(file_path);
+            expect(parser.get_by_name("count")).toBeGreaterThan(0);
+            expect(parser.get_by_name("collections")).toBeTruthy();
+        } finally {
+            parser.free();
+        }
     });
 
     test("update fields and arrays", async () => {
         const parser = new OsdbParser();
-        const file_path = path.join(ROOT, files.osdb);
-        await parser.parse(file_path);
-        const before = parser.get();
+        try {
+            const file_path = path.join(ROOT, files.osdb);
+            await parser.parse(file_path);
+            const before = parser.get();
 
-        const collections = [...before.collections];
-        collections[0] = { ...collections[0], name: "updated-collection" };
-        collections[0] = {
-            ...collections[0],
-            hash_only_beatmaps: [...collections[0].hash_only_beatmaps, "deadbeef"]
-        };
-        collections.push({
-            name: "new-collection",
-            online_id: 0,
-            beatmaps: [],
-            hash_only_beatmaps: []
-        });
-        parser.update({ last_editor: "updated", collections });
+            const collections = [...before.collections];
+            collections[0] = { ...collections[0], name: "updated-collection" };
+            collections[0] = {
+                ...collections[0],
+                hash_only_beatmaps: [...collections[0].hash_only_beatmaps, "deadbeef"]
+            };
+            collections.push({
+                name: "new-collection",
+                online_id: 0,
+                beatmaps: [],
+                hash_only_beatmaps: []
+            });
+            parser.update({ last_editor: "updated", collections });
 
-        const after = parser.get();
-        expect(after.last_editor).toBe("updated");
-        expect(after.collections[0].name).toBe("updated-collection");
-        expect(after.collections[0].hash_only_beatmaps).toContain("deadbeef");
-        expect(after.collections.length).toBe(before.collections.length + 1);
-        parser.free();
+            const after = parser.get();
+            expect(after.last_editor).toBe("updated");
+            expect(after.collections[0].name).toBe("updated-collection");
+            expect(after.collections[0].hash_only_beatmaps).toContain("deadbeef");
+            expect(after.collections.length).toBe(before.collections.length + 1);
+        } finally {
+            parser.free();
+        }
     });
 
     test("update errors", async () => {
         const parser = new OsdbParser();
-        const file_path = path.join(ROOT, files.osdb);
-        await parser.parse(file_path);
-        expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.osdb);
+            await parser.parse(file_path);
+            expect(() => parser.update({ collections: {} as unknown as any })).toThrow();
+        } finally {
+            parser.free();
+        }
     });
 });
 
@@ -437,12 +491,15 @@ describe("replay parser", () => {
     for (const name of files.replays) {
         test(`parse ${name}`, async () => {
             const parser = new OsuReplayParser();
-            const file_path = path.join(ROOT, name);
-            await parser.parse(file_path);
-            const data = parser.get();
-            expect(data).toBeTruthy();
-            expect(typeof data.replay_md5).toBe("string");
-            parser.free();
+            try {
+                const file_path = path.join(ROOT, name);
+                await parser.parse(file_path);
+                const data = parser.get();
+                expect(data).toBeTruthy();
+                expect(typeof data.replay_md5).toBe("string");
+            } finally {
+                parser.free();
+            }
         });
     }
 
@@ -571,12 +628,15 @@ describe("errors", () => {
 describe("scores.db parser", () => {
     test("parse file", async () => {
         const parser = new OsuScoresDbParser();
-        const file_path = path.join(ROOT, files.scores_db);
-        await parser.parse(file_path);
-        const data = parser.get();
-        expect(data).toBeTruthy();
-        expect(Array.isArray(data.beatmaps)).toBe(true);
-        parser.free();
+        try {
+            const file_path = path.join(ROOT, files.scores_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            expect(data).toBeTruthy();
+            expect(Array.isArray(data.beatmaps)).toBe(true);
+        } finally {
+            parser.free();
+        }
     });
 
     test("roundtrip write", async () => {

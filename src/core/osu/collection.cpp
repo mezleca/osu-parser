@@ -68,12 +68,13 @@ bool osu_collection_db_parser::write() {
     std::vector<uint8_t> buffer;
     buffer.reserve(1024);
 
-    const int32_t collections_count = static_cast<int32_t>(data->collections.size());
+    data->collections_count = static_cast<int32_t>(data->collections.size());
 
     osu_binary::write_i32(buffer, data->version);
-    osu_binary::write_i32(buffer, collections_count);
+    osu_binary::write_i32(buffer, data->collections_count);
 
-    for (const auto& collection : data->collections) {
+    for (auto& collection : data->collections) {
+        collection.beatmaps_count = static_cast<int32_t>(collection.beatmap_md5.size());
         osu_binary::write_string(buffer, collection.name);
         osu_binary::write_i32(buffer, static_cast<int32_t>(collection.beatmap_md5.size()));
 
