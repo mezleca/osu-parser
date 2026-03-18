@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cmath>
 #include <cstdint>
 #include <napi.h>
 #include <string>
@@ -78,7 +79,15 @@ namespace osu_bindings {
             return false;
         }
 
-        out = static_cast<int64_t>(value.As<Napi::Number>().DoubleValue());
+        const double number = value.As<Napi::Number>().DoubleValue();
+        constexpr double max_safe = 9007199254740991.0;
+
+        if (!std::isfinite(number) || std::floor(number) != number || number < -max_safe || number > max_safe) {
+            err = std::string("invalid number for ") + key;
+            return false;
+        }
+
+        out = static_cast<int64_t>(number);
         return true;
     }
 

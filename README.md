@@ -20,8 +20,18 @@ osu! parser library for Node.js.
 import { BeatmapParser } from "@rel-packages/osu-parser-core";
 
 const parser = new BeatmapParser();
-parser.parse("path/to/file.osu");
 
-const data = parser.get();
-parser.free();
+const main = async () => {
+    try {
+        await parser.parse("path/to/file.osu");
+        const data = await parser.get();
+        console.log(data);
+    } catch (error) {
+        console.error("parse failed:", parser.last_error() ?? error);
+    } finally {
+        await parser.free();
+    }
+};
+
+main();
 ```

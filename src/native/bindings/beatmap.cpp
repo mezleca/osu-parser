@@ -633,11 +633,11 @@ namespace osu_bindings {
     }
 
     Napi::Value beatmap_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<beatmap_instance>(info);
+        return parse_instance_async<beatmap_instance>(info, "beatmap_parse");
     }
 
     Napi::Value beatmap_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<beatmap_instance>(info);
+        return write_instance_async<beatmap_instance>(info, "beatmap_write");
     }
 
     Napi::Value beatmap_parser_last_error(const Napi::CallbackInfo& info) {
@@ -716,9 +716,10 @@ namespace osu_bindings {
         std::string err;
         bool ok = instance->with_lock([&](osu_beatmap& data, beatmap_parser& parser) {
             Napi::Object patch = info[1].As<Napi::Object>();
+            osu_beatmap temp = data;
 
             if (patch.Has("version")) {
-                if (!parse_version_value(patch.Get("version"), data.version, err)) {
+                if (!parse_version_value(patch.Get("version"), temp.version, err)) {
                     parser.last_error = err;
                     return false;
                 }
@@ -730,7 +731,7 @@ namespace osu_bindings {
                     parser.last_error = "General must be an object";
                     return false;
                 }
-                if (!update_general_section(data.general, value.As<Napi::Object>(), err)) {
+                if (!update_general_section(temp.general, value.As<Napi::Object>(), err)) {
                     parser.last_error = err;
                     return false;
                 }
@@ -742,7 +743,7 @@ namespace osu_bindings {
                     parser.last_error = "Editor must be an object";
                     return false;
                 }
-                if (!update_editor_section(data.editor, value.As<Napi::Object>(), err)) {
+                if (!update_editor_section(temp.editor, value.As<Napi::Object>(), err)) {
                     parser.last_error = err;
                     return false;
                 }
@@ -754,7 +755,7 @@ namespace osu_bindings {
                     parser.last_error = "Metadata must be an object";
                     return false;
                 }
-                if (!update_metadata_section(data.metadata, value.As<Napi::Object>(), err)) {
+                if (!update_metadata_section(temp.metadata, value.As<Napi::Object>(), err)) {
                     parser.last_error = err;
                     return false;
                 }
@@ -766,7 +767,7 @@ namespace osu_bindings {
                     parser.last_error = "Difficulty must be an object";
                     return false;
                 }
-                if (!update_difficulty_section(data.difficulty, value.As<Napi::Object>(), err)) {
+                if (!update_difficulty_section(temp.difficulty, value.As<Napi::Object>(), err)) {
                     parser.last_error = err;
                     return false;
                 }
@@ -783,12 +784,12 @@ namespace osu_bindings {
                 if (events.Has("background")) {
                     Napi::Value bg_value = events.Get("background");
                     if (bg_value.IsNull()) {
-                        data.background.reset();
+                        temp.background.reset();
                     } else if (is_object(bg_value)) {
-                        if (!data.background.has_value()) {
-                            data.background = event_background{};
+                        if (!temp.background.has_value()) {
+                            temp.background = event_background{};
                         }
-                        if (!update_background(*data.background, bg_value.As<Napi::Object>(), err)) {
+                        if (!update_background(*temp.background, bg_value.As<Napi::Object>(), err)) {
                             parser.last_error = err;
                             return false;
                         }
@@ -801,12 +802,12 @@ namespace osu_bindings {
                 if (events.Has("video")) {
                     Napi::Value video_value = events.Get("video");
                     if (video_value.IsNull()) {
-                        data.video.reset();
+                        temp.video.reset();
                     } else if (is_object(video_value)) {
-                        if (!data.video.has_value()) {
-                            data.video = event_video{};
+                        if (!temp.video.has_value()) {
+                            temp.video = event_video{};
                         }
-                        if (!update_video(*data.video, video_value.As<Napi::Object>(), err)) {
+                        if (!update_video(*temp.video, video_value.As<Napi::Object>(), err)) {
                             parser.last_error = err;
                             return false;
                         }
@@ -833,7 +834,7 @@ namespace osu_bindings {
                         }
                         next.push_back(std::move(item));
                     }
-                    data.breaks = std::move(next);
+                    temp.breaks = std::move(next);
                 }
             }
 
@@ -854,7 +855,7 @@ namespace osu_bindings {
                     }
                     next.push_back(std::move(item));
                 }
-                data.timing_points = std::move(next);
+                temp.timing_points = std::move(next);
             }
 
             if (patch.Has("Colours")) {
@@ -885,34 +886,34 @@ namespace osu_bindings {
                         }
                         next.push_back(item);
                     }
-                    data.colours.combos = std::move(next);
+                    temp.colours.combos = std::move(next);
                 }
 
                 if (colours.Has("SliderTrackOverride")) {
                     Napi::Value slider_track = colours.Get("SliderTrackOverride");
                     if (slider_track.IsNull()) {
-                        data.colours.slider_track_override.reset();
+                        temp.colours.slider_track_override.reset();
                     } else {
                         std::array<int, 3> color{};
                         if (!parse_color(slider_track, color, err)) {
                             parser.last_error = err;
                             return false;
                         }
-                        data.colours.slider_track_override = color;
+                        temp.colours.slider_track_override = color;
                     }
                 }
 
                 if (colours.Has("SliderBorder")) {
                     Napi::Value slider_border = colours.Get("SliderBorder");
                     if (slider_border.IsNull()) {
-                        data.colours.slider_border.reset();
+                        temp.colours.slider_border.reset();
                     } else {
                         std::array<int, 3> color{};
                         if (!parse_color(slider_border, color, err)) {
                             parser.last_error = err;
                             return false;
                         }
-                        data.colours.slider_border = color;
+                        temp.colours.slider_border = color;
                     }
                 }
             }
@@ -934,9 +935,11 @@ namespace osu_bindings {
                     }
                     next.push_back(std::move(item));
                 }
-                data.hit_objects = std::move(next);
+                temp.hit_objects = std::move(next);
             }
 
+            data = std::move(temp);
+            parser.last_error.clear();
             return true;
         });
 

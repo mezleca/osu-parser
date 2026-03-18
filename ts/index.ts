@@ -16,6 +16,21 @@ import {
     OsuScoresDb
 } from "./types/types";
 
+type ParserCoreFns<TGet> = {
+    name: string;
+    create: () => bigint;
+    free: (handle: bigint) => void;
+    parse: (handle: bigint, location: string) => Promise<boolean>;
+    write: (handle: bigint) => Promise<boolean>;
+    get: (handle: bigint) => TGet;
+    last_error: (handle: bigint) => string | null;
+};
+
+type ParserUpdateFns<TGet, TKey extends string, TUpdate> = ParserCoreFns<TGet> & {
+    getByName: (handle: bigint, key: TKey) => unknown;
+    update: (handle: bigint, patch: TUpdate) => boolean;
+};
+
 class BaseParser {
     protected handle: bigint;
 
@@ -38,295 +53,167 @@ class BaseParser {
     }
 }
 
-export class BeatmapParser extends BaseParser {
-    constructor() {
-        super(native.create_beatmap_parser());
+class ParserBase<TGet> extends BaseParser {
+    protected fns: ParserCoreFns<TGet>;
+
+    constructor(fns: ParserCoreFns<TGet>) {
+        super(fns.create());
+        this.fns = fns;
     }
 
-    parse(location: string): this {
+    async parse(location: string): Promise<this> {
         this.assert_handle();
-        const ok = native.beatmap_parser_parse(this.handle, location);
+        const ok = await this.fns.parse(this.handle, location);
 
         if (!ok) {
-            const message = native.beatmap_parser_last_error(this.handle);
-            throw new Error(message ? `BeatmapParser.parse failed: ${message}` : "BeatmapParser.parse failed");
+            const message = this.fns.last_error(this.handle);
+            throw new Error(message ? `${this.fns.name}.parse failed: ${message}` : `${this.fns.name}.parse failed`);
         }
 
         return this;
     }
 
-    write(): void {
+    async write(): Promise<void> {
         this.assert_handle();
-        const ok = native.beatmap_parser_write(this.handle);
+        const ok = await this.fns.write(this.handle);
         if (!ok) {
-            throw new Error("BeatmapParser.write failed");
+            throw new Error(`${this.fns.name}.write failed`);
         }
     }
 
-    get(): OsuFileFormat {
+    get(): TGet {
         this.assert_handle();
-        return native.beatmap_parser_get(this.handle);
+        return this.fns.get(this.handle);
     }
 
-    getByName<K extends BeatmapKey>(key: K): OsuFileFormat[K] {
+    last_error(): string | null {
         this.assert_handle();
-        return native.beatmap_parser_get_by_name(this.handle, key) as OsuFileFormat[K];
+        return this.fns.last_error(this.handle);
     }
 
-    update(patch: BeatmapUpdate): this {
-        this.assert_handle();
-        native.beatmap_parser_update(this.handle, patch);
-        return this;
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.beatmap_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_beatmap_parser(this.handle);
+    free(): void {
+        this.fns.free(this.handle);
         this.clear_handle();
     }
 }
 
-export class OsuDbParser extends BaseParser {
-    constructor() {
-        super(native.create_osu_db_parser());
+class ParserWithUpdateAndGetByName<
+    TGet extends object,
+    TKey extends keyof TGet & string,
+    TUpdate
+> extends ParserBase<TGet> {
+    protected fns: ParserUpdateFns<TGet, TKey, TUpdate>;
+
+    constructor(fns: ParserUpdateFns<TGet, TKey, TUpdate>) {
+        super(fns);
+        this.fns = fns;
     }
 
-    parse(location: string): this {
+    get_by_name<K extends TKey>(key: K): TGet[K] {
         this.assert_handle();
-        const ok = native.osu_db_parser_parse(this.handle, location);
+        return this.fns.getByName(this.handle, key) as TGet[K];
+    }
 
-        if (!ok) {
-            const message = native.osu_db_parser_last_error(this.handle);
-            throw new Error(message ? `OsuDbParser.parse failed: ${message}` : "OsuDbParser.parse failed");
-        }
-
+    update(patch: TUpdate): this {
+        this.assert_handle();
+        this.fns.update(this.handle, patch);
         return this;
-    }
-
-    write(): void {
-        this.assert_handle();
-        const ok = native.osu_db_parser_write(this.handle);
-        if (!ok) {
-            throw new Error("OsuDbParser.write failed");
-        }
-    }
-
-    get(): OsuLegacyDatabase {
-        this.assert_handle();
-        return native.osu_db_parser_get(this.handle);
-    }
-
-    getByName<K extends OsuDbKey>(key: K): OsuLegacyDatabase[K] {
-        this.assert_handle();
-        return native.osu_db_parser_get_by_name(this.handle, key) as OsuLegacyDatabase[K];
-    }
-
-    update(patch: OsuDbUpdate): this {
-        this.assert_handle();
-        native.osu_db_parser_update(this.handle, patch);
-        return this;
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.osu_db_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_osu_db_parser(this.handle);
-        this.clear_handle();
     }
 }
 
-export class OsuCollectionDbParser extends BaseParser {
+export class BeatmapParser extends ParserWithUpdateAndGetByName<OsuFileFormat, BeatmapKey, BeatmapUpdate> {
     constructor() {
-        super(native.create_osu_collection_db_parser());
-    }
-
-    parse(location: string): this {
-        this.assert_handle();
-        const ok = native.osu_collection_db_parser_parse(this.handle, location);
-
-        if (!ok) {
-            const message = native.osu_collection_db_parser_last_error(this.handle);
-            throw new Error(
-                message ? `OsuCollectionDbParser.parse failed: ${message}` : "OsuCollectionDbParser.parse failed"
-            );
-        }
-
-        return this;
-    }
-
-    write(): void {
-        this.assert_handle();
-        const ok = native.osu_collection_db_parser_write(this.handle);
-        if (!ok) {
-            throw new Error("OsuCollectionDbParser.write failed");
-        }
-    }
-
-    get(): OsuCollectionDb {
-        this.assert_handle();
-        return native.osu_collection_db_parser_get(this.handle);
-    }
-
-    getByName<K extends OsuCollectionDbKey>(key: K): OsuCollectionDb[K] {
-        this.assert_handle();
-        return native.osu_collection_db_parser_get_by_name(this.handle, key) as OsuCollectionDb[K];
-    }
-
-    update(patch: OsuCollectionDbUpdate): this {
-        this.assert_handle();
-        native.osu_collection_db_parser_update(this.handle, patch);
-        return this;
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.osu_collection_db_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_osu_collection_db_parser(this.handle);
-        this.clear_handle();
+        super({
+            name: "BeatmapParser",
+            create: native.create_beatmap_parser,
+            free: native.free_beatmap_parser,
+            parse: native.beatmap_parser_parse,
+            write: native.beatmap_parser_write,
+            get: native.beatmap_parser_get,
+            getByName: native.beatmap_parser_get_by_name,
+            update: native.beatmap_parser_update,
+            last_error: native.beatmap_parser_last_error
+        });
     }
 }
 
-export class OsuScoresDbParser extends BaseParser {
+export class OsuDbParser extends ParserWithUpdateAndGetByName<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
     constructor() {
-        super(native.create_osu_scores_db_parser());
-    }
-
-    parse(location: string): this {
-        this.assert_handle();
-        const ok = native.osu_scores_db_parser_parse(this.handle, location);
-
-        if (!ok) {
-            const message = native.osu_scores_db_parser_last_error(this.handle);
-            throw new Error(message ? `OsuScoresDbParser.parse failed: ${message}` : "OsuScoresDbParser.parse failed");
-        }
-
-        return this;
-    }
-
-    write(): void {
-        this.assert_handle();
-        const ok = native.osu_scores_db_parser_write(this.handle);
-        if (!ok) {
-            throw new Error("OsuScoresDbParser.write failed");
-        }
-    }
-
-    get(): OsuScoresDb {
-        this.assert_handle();
-        return native.osu_scores_db_parser_get(this.handle);
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.osu_scores_db_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_osu_scores_db_parser(this.handle);
-        this.clear_handle();
+        super({
+            name: "OsuDbParser",
+            create: native.create_osu_db_parser,
+            free: native.free_osu_db_parser,
+            parse: native.osu_db_parser_parse,
+            write: native.osu_db_parser_write,
+            get: native.osu_db_parser_get,
+            getByName: native.osu_db_parser_get_by_name,
+            update: native.osu_db_parser_update,
+            last_error: native.osu_db_parser_last_error
+        });
     }
 }
 
-export class OsuReplayParser extends BaseParser {
+export class OsuCollectionDbParser extends ParserWithUpdateAndGetByName<
+    OsuCollectionDb,
+    OsuCollectionDbKey,
+    OsuCollectionDbUpdate
+> {
     constructor() {
-        super(native.create_osu_replay_parser());
-    }
-
-    parse(location: string): this {
-        this.assert_handle();
-        const ok = native.osu_replay_parser_parse(this.handle, location);
-
-        if (!ok) {
-            const message = native.osu_replay_parser_last_error(this.handle);
-            throw new Error(message ? `OsuReplayParser.parse failed: ${message}` : "OsuReplayParser.parse failed");
-        }
-
-        return this;
-    }
-
-    write(): void {
-        this.assert_handle();
-        const ok = native.osu_replay_parser_write(this.handle);
-        if (!ok) {
-            throw new Error("OsuReplayParser.write failed");
-        }
-    }
-
-    get(): OsuReplay {
-        this.assert_handle();
-        return native.osu_replay_parser_get(this.handle);
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.osu_replay_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_osu_replay_parser(this.handle);
-        this.clear_handle();
+        super({
+            name: "OsuCollectionDbParser",
+            create: native.create_osu_collection_db_parser,
+            free: native.free_osu_collection_db_parser,
+            parse: native.osu_collection_db_parser_parse,
+            write: native.osu_collection_db_parser_write,
+            get: native.osu_collection_db_parser_get,
+            getByName: native.osu_collection_db_parser_get_by_name,
+            update: native.osu_collection_db_parser_update,
+            last_error: native.osu_collection_db_parser_last_error
+        });
     }
 }
 
-export class OsdbParser extends BaseParser {
+export class OsuScoresDbParser extends ParserBase<OsuScoresDb> {
     constructor() {
-        super(native.create_osdb_parser());
+        super({
+            name: "OsuScoresDbParser",
+            create: native.create_osu_scores_db_parser,
+            free: native.free_osu_scores_db_parser,
+            parse: native.osu_scores_db_parser_parse,
+            write: native.osu_scores_db_parser_write,
+            get: native.osu_scores_db_parser_get,
+            last_error: native.osu_scores_db_parser_last_error
+        });
     }
+}
 
-    parse(location: string): this {
-        this.assert_handle();
-        const ok = native.osdb_parser_parse(this.handle, location);
-
-        if (!ok) {
-            const message = native.osdb_parser_last_error(this.handle);
-            throw new Error(message ? `OsdbParser.parse failed: ${message}` : "OsdbParser.parse failed");
-        }
-
-        return this;
+export class OsuReplayParser extends ParserBase<OsuReplay> {
+    constructor() {
+        super({
+            name: "OsuReplayParser",
+            create: native.create_osu_replay_parser,
+            free: native.free_osu_replay_parser,
+            parse: native.osu_replay_parser_parse,
+            write: native.osu_replay_parser_write,
+            get: native.osu_replay_parser_get,
+            last_error: native.osu_replay_parser_last_error
+        });
     }
+}
 
-    write(): void {
-        this.assert_handle();
-        const ok = native.osdb_parser_write(this.handle);
-        if (!ok) {
-            throw new Error("OsdbParser.write failed");
-        }
-    }
-
-    get(): OsdbData {
-        this.assert_handle();
-        return native.osdb_parser_get(this.handle);
-    }
-
-    getByName<K extends OsdbKey>(key: K): OsdbData[K] {
-        this.assert_handle();
-        return native.osdb_parser_get_by_name(this.handle, key) as OsdbData[K];
-    }
-
-    update(patch: OsdbUpdate): this {
-        this.assert_handle();
-        native.osdb_parser_update(this.handle, patch);
-        return this;
-    }
-
-    lastError(): string | null {
-        this.assert_handle();
-        return native.osdb_parser_last_error(this.handle);
-    }
-
-    free() {
-        native.free_osdb_parser(this.handle);
-        this.clear_handle();
+export class OsdbParser extends ParserWithUpdateAndGetByName<OsdbData, OsdbKey, OsdbUpdate> {
+    constructor() {
+        super({
+            name: "OsdbParser",
+            create: native.create_osdb_parser,
+            free: native.free_osdb_parser,
+            parse: native.osdb_parser_parse,
+            write: native.osdb_parser_write,
+            get: native.osdb_parser_get,
+            getByName: native.osdb_parser_get_by_name,
+            update: native.osdb_parser_update,
+            last_error: native.osdb_parser_last_error
+        });
     }
 }
 

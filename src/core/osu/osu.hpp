@@ -150,7 +150,7 @@ struct osu_replay : osu_score_base {
 // === parsers ===
 struct osu_db_parser {
     // data is non-owning and managed by parser_base
-    osu_legacy_database* data;
+    osu_legacy_database* data = nullptr;
     std::string location;
     std::string last_error;
 
@@ -160,7 +160,7 @@ struct osu_db_parser {
 
 struct osu_collection_db_parser {
     // data is non-owning and managed by parser_base
-    osu_collection_db* data;
+    osu_collection_db* data = nullptr;
     std::string location;
     std::string last_error;
 
@@ -170,7 +170,7 @@ struct osu_collection_db_parser {
 
 struct osu_scores_db_parser {
     // data is non-owning and managed by parser_base
-    osu_scores_db* data;
+    osu_scores_db* data = nullptr;
     std::string location;
     std::string last_error;
 
@@ -180,7 +180,7 @@ struct osu_scores_db_parser {
 
 struct osu_replay_parser {
     // data is non-owning and managed by parser_base
-    osu_replay* data;
+    osu_replay* data = nullptr;
     std::string location;
     std::string last_error;
 

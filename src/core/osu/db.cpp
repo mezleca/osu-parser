@@ -128,6 +128,9 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
     beatmap.audio_preview_time = osu_binary::read_i32(cursor);
 
     int32_t timing_count = osu_binary::read_i32(cursor);
+    if (timing_count < 0) {
+        throw std::runtime_error("invalid timing point count");
+    }
     beatmap.timing_points.reserve(static_cast<size_t>(std::max(0, timing_count)));
 
     for (int32_t i = 0; i < timing_count; i++) {
@@ -187,15 +190,15 @@ bool osu_db_parser::parse(const std::string& location) {
         return false;
     }
 
-    this->location = location;
     std::vector<uint8_t> buffer;
 
-    if (!osu_binary::read_file_buffer(this->location, buffer)) {
+    if (!osu_binary::read_file_buffer(location, buffer)) {
         last_error = "failed to read file";
         return false;
     }
 
     try {
+        this->location = location;
         osu_binary::binary_cursor cursor;
         osu_binary::set_cursor(cursor, buffer);
 
@@ -205,6 +208,9 @@ bool osu_db_parser::parse(const std::string& location) {
         data->account_unlock_time = osu_binary::read_i64(cursor);
         data->player_name = osu_binary::read_string(cursor);
         data->beatmaps_count = osu_binary::read_i32(cursor);
+        if (data->beatmaps_count < 0) {
+            throw std::runtime_error("invalid beatmaps count");
+        }
 
         data->beatmaps.clear();
         data->beatmaps.reserve(static_cast<size_t>(std::max(0, data->beatmaps_count)));

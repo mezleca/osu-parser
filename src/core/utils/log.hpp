@@ -16,11 +16,11 @@
 inline void log_print() {
 }
 
-template <typename T> void log_print(const T& value) {
+template <typename T> inline void log_print(const T& value) {
     std::cout << value;
 }
 
-template <typename T, typename... Args> void log_print(const T& value, const Args&... args) {
+template <typename T, typename... Args> inline void log_print(const T& value, const Args&... args) {
     std::cout << value << " ";
     log_print(args...);
 }

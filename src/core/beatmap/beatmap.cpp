@@ -3,6 +3,7 @@
 #include "utils/beatmap_writer.hpp"
 
 #include <algorithm>
+#include <climits>
 #include <charconv>
 #include <functional>
 #include <fstream>
@@ -714,7 +715,11 @@ bool beatmap_parser::write() {
         bool is_hold = (ho.type & 128) != 0;
 
         if (is_slider) {
-            const int edge_count = std::max(1, ho.slides + 1);
+            long long slides_plus = static_cast<long long>(ho.slides) + 1;
+            if (slides_plus > INT_MAX) {
+                slides_plus = INT_MAX;
+            }
+            const int edge_count = std::max(1, static_cast<int>(slides_plus));
             std::vector<int> edge_sounds = ho.edge_sounds;
             if (static_cast<int>(edge_sounds.size()) != edge_count) {
                 edge_sounds.assign(edge_count, 0);

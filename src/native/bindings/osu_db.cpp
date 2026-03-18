@@ -383,11 +383,11 @@ namespace osu_bindings {
     }
 
     Napi::Value osu_db_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<osu_db_instance>(info);
+        return parse_instance_async<osu_db_instance>(info, "osu_db_parse");
     }
 
     Napi::Value osu_db_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<osu_db_instance>(info);
+        return write_instance_async<osu_db_instance>(info, "osu_db_write");
     }
 
     Napi::Value osu_db_parser_last_error(const Napi::CallbackInfo& info) {
@@ -402,7 +402,7 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return osu_db_to_js(env, instance->data);
+        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) { return osu_db_to_js(env, data); });
     }
 
     Napi::Value osu_db_get_by_key(Napi::Env& env, const osu_legacy_database& data, const std::string& key) {

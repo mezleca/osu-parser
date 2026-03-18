@@ -73,11 +73,11 @@ namespace osu_bindings {
     }
 
     Napi::Value osu_scores_db_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<osu_scores_db_instance>(info);
+        return parse_instance_async<osu_scores_db_instance>(info, "osu_scores_db_parse");
     }
 
     Napi::Value osu_scores_db_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<osu_scores_db_instance>(info);
+        return write_instance_async<osu_scores_db_instance>(info, "osu_scores_db_write");
     }
 
     Napi::Value osu_scores_db_parser_last_error(const Napi::CallbackInfo& info) {

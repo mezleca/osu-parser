@@ -151,11 +151,11 @@ namespace osu_bindings {
     }
 
     Napi::Value osdb_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<osdb_instance>(info);
+        return parse_instance_async<osdb_instance>(info, "osdb_parse");
     }
 
     Napi::Value osdb_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<osdb_instance>(info);
+        return write_instance_async<osdb_instance>(info, "osdb_write");
     }
 
     Napi::Value osdb_parser_last_error(const Napi::CallbackInfo& info) {
@@ -208,10 +208,11 @@ namespace osu_bindings {
         std::string err;
         bool ok = instance->with_lock([&](osdb_data& data, osdb_parser& parser) {
             Napi::Object patch = info[1].As<Napi::Object>();
+            osdb_data temp = data;
 
-            if (!get_optional_int64(patch, "save_data", data.save_data, err) ||
-                !get_optional_string(patch, "last_editor", data.last_editor, err) ||
-                !get_optional_int32(patch, "count", data.count, err)) {
+            if (!get_optional_int64(patch, "save_data", temp.save_data, err) ||
+                !get_optional_string(patch, "last_editor", temp.last_editor, err) ||
+                !get_optional_int32(patch, "count", temp.count, err)) {
                 parser.last_error = err;
                 return false;
             }
@@ -233,10 +234,11 @@ namespace osu_bindings {
                     }
                     next.push_back(std::move(item));
                 }
-                data.collections = std::move(next);
+                temp.collections = std::move(next);
             }
 
-            data.count = static_cast<int32_t>(data.collections.size());
+            temp.count = static_cast<int32_t>(temp.collections.size());
+            data = std::move(temp);
             parser.last_error.clear();
             return true;
         });

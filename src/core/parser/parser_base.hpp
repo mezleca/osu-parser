@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <mutex>
 #include <string>
 
@@ -7,6 +8,7 @@ template <typename DataT, typename ParserT> struct parser_base {
     DataT data;
     ParserT parser;
     mutable std::mutex mutex;
+    std::atomic<bool> freed{false};
 
     parser_base() {
         parser.data = &data;
@@ -30,6 +32,10 @@ template <typename DataT, typename ParserT> struct parser_base {
     }
 
     virtual void free_instance() {
+        if (freed.exchange(true)) {
+            return;
+        }
+
         delete this;
     }
 };

@@ -5,6 +5,7 @@
 #include <fstream>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 namespace osu_binary {
@@ -33,12 +34,46 @@ namespace osu_binary {
         }
     }
 
+    inline constexpr bool is_little_endian() {
+#if defined(__BYTE_ORDER__) && defined(__ORDER_LITTLE_ENDIAN__) && defined(__ORDER_BIG_ENDIAN__)
+        return __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__;
+#elif defined(_WIN32)
+        return true;
+#else
+        return true;
+#endif
+    }
+
+    template <typename T> inline T byteswap(T value) {
+        using U = std::make_unsigned_t<T>;
+        U uvalue = static_cast<U>(value);
+        if constexpr (sizeof(U) == 1) {
+            return value;
+        } else if constexpr (sizeof(U) == 2) {
+            uvalue = static_cast<U>((uvalue >> 8) | (uvalue << 8));
+        } else if constexpr (sizeof(U) == 4) {
+            uvalue = static_cast<U>(((uvalue & 0x000000FFu) << 24) | ((uvalue & 0x0000FF00u) << 8) |
+                                    ((uvalue & 0x00FF0000u) >> 8) | ((uvalue & 0xFF000000u) >> 24));
+        } else if constexpr (sizeof(U) == 8) {
+            uvalue =
+                static_cast<U>(((uvalue & 0x00000000000000FFull) << 56) | ((uvalue & 0x000000000000FF00ull) << 40) |
+                               ((uvalue & 0x0000000000FF0000ull) << 24) | ((uvalue & 0x00000000FF000000ull) << 8) |
+                               ((uvalue & 0x000000FF00000000ull) >> 8) | ((uvalue & 0x0000FF0000000000ull) >> 24) |
+                               ((uvalue & 0x00FF000000000000ull) >> 40) | ((uvalue & 0xFF00000000000000ull) >> 56));
+        }
+        return static_cast<T>(uvalue);
+    }
+
     template <typename T> inline T read_integral(binary_cursor& cursor) {
-        T value = 0;
+        using U = std::make_unsigned_t<T>;
+        U value = 0;
         ensure_range(cursor, sizeof(T));
         std::memcpy(&value, cursor.buffer->data() + cursor.offset, sizeof(T));
         cursor.offset += sizeof(T);
-        return value;
+        if (is_little_endian()) {
+            return static_cast<T>(value);
+        }
+        return byteswap(static_cast<T>(value));
     }
 
     inline uint8_t read_u8(binary_cursor& cursor) {

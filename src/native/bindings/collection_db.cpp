@@ -8,8 +8,12 @@ namespace osu_bindings {
     using osu_collection_db_instance = parser_base<osu_collection_db, osu_collection_db_parser>;
 
     bool update_collection(osu_collection& collection, const Napi::Object& patch, std::string& err) {
-        if (!get_optional_string(patch, "name", collection.name, err) ||
-            !get_optional_int32(patch, "beatmaps_count", collection.beatmaps_count, err)) {
+        if (!get_optional_string(patch, "name", collection.name, err)) {
+            return false;
+        }
+
+        const bool has_count = patch.Has("beatmaps_count");
+        if (has_count && !get_optional_int32(patch, "beatmaps_count", collection.beatmaps_count, err)) {
             return false;
         }
 
@@ -35,7 +39,9 @@ namespace osu_bindings {
             collection.beatmap_md5 = std::move(next);
         }
 
-        collection.beatmaps_count = static_cast<int32_t>(collection.beatmap_md5.size());
+        if (!has_count) {
+            collection.beatmaps_count = static_cast<int32_t>(collection.beatmap_md5.size());
+        }
         return true;
     }
 
@@ -89,11 +95,11 @@ namespace osu_bindings {
     }
 
     Napi::Value osu_collection_db_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<osu_collection_db_instance>(info);
+        return parse_instance_async<osu_collection_db_instance>(info, "osu_collection_db_parse");
     }
 
     Napi::Value osu_collection_db_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<osu_collection_db_instance>(info);
+        return write_instance_async<osu_collection_db_instance>(info, "osu_collection_db_write");
     }
 
     Napi::Value osu_collection_db_parser_last_error(const Napi::CallbackInfo& info) {
@@ -108,7 +114,8 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        return collection_db_to_js(env, instance->data);
+        return instance->with_lock(
+            [&](osu_collection_db& data, osu_collection_db_parser&) { return collection_db_to_js(env, data); });
     }
 
     Napi::Value collection_db_get_by_key(Napi::Env& env, const osu_collection_db& data, const std::string& key) {

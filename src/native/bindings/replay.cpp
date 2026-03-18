@@ -41,11 +41,11 @@ namespace osu_bindings {
     }
 
     Napi::Value osu_replay_parser_parse(const Napi::CallbackInfo& info) {
-        return parse_instance<osu_replay_instance>(info);
+        return parse_instance_async<osu_replay_instance>(info, "osu_replay_parse");
     }
 
     Napi::Value osu_replay_parser_write(const Napi::CallbackInfo& info) {
-        return write_instance<osu_replay_instance>(info);
+        return write_instance_async<osu_replay_instance>(info, "osu_replay_write");
     }
 
     Napi::Value osu_replay_parser_last_error(const Napi::CallbackInfo& info) {

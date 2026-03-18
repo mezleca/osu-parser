@@ -404,8 +404,8 @@ export type OsdbUpdate = DeepPartial<OsdbData>;
 export interface NativeBindings {
     create_beatmap_parser(): bigint;
     free_beatmap_parser(handle: bigint): void;
-    beatmap_parser_parse(handle: bigint, location: string): boolean;
-    beatmap_parser_write(handle: bigint): boolean;
+    beatmap_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    beatmap_parser_write(handle: bigint): Promise<boolean>;
     beatmap_parser_last_error(handle: bigint): string | null;
     beatmap_parser_get(handle: bigint): OsuFileFormat;
     beatmap_parser_update(handle: bigint, patch: BeatmapUpdate): boolean;
@@ -413,8 +413,8 @@ export interface NativeBindings {
 
     create_osu_db_parser(): bigint;
     free_osu_db_parser(handle: bigint): void;
-    osu_db_parser_parse(handle: bigint, location: string): boolean;
-    osu_db_parser_write(handle: bigint): boolean;
+    osu_db_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    osu_db_parser_write(handle: bigint): Promise<boolean>;
     osu_db_parser_last_error(handle: bigint): string | null;
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
     osu_db_parser_update(handle: bigint, patch: OsuDbUpdate): boolean;
@@ -422,8 +422,8 @@ export interface NativeBindings {
 
     create_osu_collection_db_parser(): bigint;
     free_osu_collection_db_parser(handle: bigint): void;
-    osu_collection_db_parser_parse(handle: bigint, location: string): boolean;
-    osu_collection_db_parser_write(handle: bigint): boolean;
+    osu_collection_db_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    osu_collection_db_parser_write(handle: bigint): Promise<boolean>;
     osu_collection_db_parser_last_error(handle: bigint): string | null;
     osu_collection_db_parser_get(handle: bigint): OsuCollectionDb;
     osu_collection_db_parser_update(handle: bigint, patch: OsuCollectionDbUpdate): boolean;
@@ -431,22 +431,22 @@ export interface NativeBindings {
 
     create_osu_scores_db_parser(): bigint;
     free_osu_scores_db_parser(handle: bigint): void;
-    osu_scores_db_parser_parse(handle: bigint, location: string): boolean;
-    osu_scores_db_parser_write(handle: bigint): boolean;
+    osu_scores_db_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    osu_scores_db_parser_write(handle: bigint): Promise<boolean>;
     osu_scores_db_parser_last_error(handle: bigint): string | null;
     osu_scores_db_parser_get(handle: bigint): OsuScoresDb;
 
     create_osu_replay_parser(): bigint;
     free_osu_replay_parser(handle: bigint): void;
-    osu_replay_parser_parse(handle: bigint, location: string): boolean;
-    osu_replay_parser_write(handle: bigint): boolean;
+    osu_replay_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    osu_replay_parser_write(handle: bigint): Promise<boolean>;
     osu_replay_parser_last_error(handle: bigint): string | null;
     osu_replay_parser_get(handle: bigint): OsuReplay;
 
     create_osdb_parser(): bigint;
     free_osdb_parser(handle: bigint): void;
-    osdb_parser_parse(handle: bigint, location: string): boolean;
-    osdb_parser_write(handle: bigint): boolean;
+    osdb_parser_parse(handle: bigint, location: string): Promise<boolean>;
+    osdb_parser_write(handle: bigint): Promise<boolean>;
     osdb_parser_last_error(handle: bigint): string | null;
     osdb_parser_get(handle: bigint): OsdbData;
     osdb_parser_update(handle: bigint, patch: OsdbUpdate): boolean;

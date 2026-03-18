@@ -3,6 +3,7 @@
 #include "utils/binary.hpp"
 
 #include <algorithm>
+#include <climits>
 
 bool osu_replay_parser::parse(const std::string& location) {
     if (data == nullptr) {
@@ -10,14 +11,14 @@ bool osu_replay_parser::parse(const std::string& location) {
         return false;
     }
 
-    this->location = location;
     std::vector<uint8_t> buffer;
-    if (!osu_binary::read_file_buffer(this->location, buffer)) {
+    if (!osu_binary::read_file_buffer(location, buffer)) {
         last_error = "failed to read file";
         return false;
     }
 
     try {
+        this->location = location;
         osu_binary::binary_cursor cursor;
         osu_binary::set_cursor(cursor, buffer);
 
@@ -39,6 +40,9 @@ bool osu_replay_parser::parse(const std::string& location) {
         data->life_bar_graph = osu_binary::read_string(cursor);
         data->timestamp = osu_binary::read_i64(cursor);
         data->replay_data_length = osu_binary::read_i32(cursor);
+        if (data->replay_data_length < 0) {
+            throw std::runtime_error("invalid replay data length");
+        }
 
         if (data->replay_data_length > 0) {
             osu_binary::ensure_range(cursor, static_cast<size_t>(data->replay_data_length));
@@ -95,16 +99,15 @@ bool osu_replay_parser::write() {
     osu_binary::write_string(buffer, data->life_bar_graph);
     osu_binary::write_i64(buffer, data->timestamp);
 
-    const int32_t replay_size =
-        data->replay_data.empty() ? data->replay_data_length : static_cast<int32_t>(data->replay_data.size());
+    if (data->replay_data.size() > static_cast<size_t>(INT32_MAX)) {
+        last_error = "replay data too large";
+        return false;
+    }
+
+    const int32_t replay_size = static_cast<int32_t>(data->replay_data.size());
     osu_binary::write_i32(buffer, replay_size);
     if (replay_size > 0) {
-        if (data->replay_data.size() >= static_cast<size_t>(replay_size)) {
-            buffer.insert(buffer.end(), data->replay_data.begin(), data->replay_data.begin() + replay_size);
-        } else {
-            buffer.insert(buffer.end(), data->replay_data.begin(), data->replay_data.end());
-            buffer.resize(buffer.size() + static_cast<size_t>(replay_size - data->replay_data.size()), 0);
-        }
+        buffer.insert(buffer.end(), data->replay_data.begin(), data->replay_data.end());
     }
 
     osu_binary::write_i64(buffer, data->online_score_id);
