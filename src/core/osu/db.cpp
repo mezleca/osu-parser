@@ -76,9 +76,11 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
     const bool has_entry_size = version < 20191106;
     const bool old_diff_format = version < 20140609;
     const bool use_float_star = version >= 20250107;
+    size_t entry_start = 0;
 
     if (has_entry_size) {
         beatmap.entry_size = osu_binary::read_i32(cursor);
+        entry_start = cursor.offset;
     }
 
     beatmap.artist = osu_binary::read_string(cursor);
@@ -163,6 +165,15 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
 
     beatmap.last_modified = osu_binary::read_i32(cursor);
     beatmap.mania_scroll_speed = osu_binary::read_u8(cursor);
+
+    if (has_entry_size && beatmap.entry_size.has_value()) {
+        const size_t bytes_read = cursor.offset - entry_start;
+        const int32_t entry_size = beatmap.entry_size.value();
+        if (entry_size > 0 && static_cast<size_t>(entry_size) > bytes_read) {
+            osu_binary::skip(cursor, static_cast<size_t>(entry_size) - bytes_read);
+        }
+    }
+
     return beatmap;
 }
 
@@ -236,89 +247,93 @@ bool osu_db_parser::write() {
     osu_binary::write_i32(buffer, beatmaps_count);
 
     for (const auto& beatmap : data->beatmaps) {
-        if (has_entry_size) {
-            osu_binary::write_i32(buffer, beatmap.entry_size.value_or(0));
-        }
+        std::vector<uint8_t> entry;
+        entry.reserve(512);
 
-        osu_binary::write_string(buffer, beatmap.artist);
-        osu_binary::write_string(buffer, beatmap.artist_unicode);
-        osu_binary::write_string(buffer, beatmap.title);
-        osu_binary::write_string(buffer, beatmap.title_unicode);
-        osu_binary::write_string(buffer, beatmap.creator);
-        osu_binary::write_string(buffer, beatmap.difficulty);
-        osu_binary::write_string(buffer, beatmap.audio_file_name);
-        osu_binary::write_string(buffer, beatmap.md5);
-        osu_binary::write_string(buffer, beatmap.osu_file_name);
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.ranked_status));
-        osu_binary::write_u16(buffer, static_cast<uint16_t>(beatmap.hitcircle));
-        osu_binary::write_u16(buffer, static_cast<uint16_t>(beatmap.sliders));
-        osu_binary::write_u16(buffer, static_cast<uint16_t>(beatmap.spinners));
-        osu_binary::write_i64(buffer, beatmap.last_modification_time);
+        osu_binary::write_string(entry, beatmap.artist);
+        osu_binary::write_string(entry, beatmap.artist_unicode);
+        osu_binary::write_string(entry, beatmap.title);
+        osu_binary::write_string(entry, beatmap.title_unicode);
+        osu_binary::write_string(entry, beatmap.creator);
+        osu_binary::write_string(entry, beatmap.difficulty);
+        osu_binary::write_string(entry, beatmap.audio_file_name);
+        osu_binary::write_string(entry, beatmap.md5);
+        osu_binary::write_string(entry, beatmap.osu_file_name);
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.ranked_status));
+        osu_binary::write_u16(entry, static_cast<uint16_t>(beatmap.hitcircle));
+        osu_binary::write_u16(entry, static_cast<uint16_t>(beatmap.sliders));
+        osu_binary::write_u16(entry, static_cast<uint16_t>(beatmap.spinners));
+        osu_binary::write_i64(entry, beatmap.last_modification_time);
 
         if (old_diff_format) {
-            osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.approach_rate));
-            osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.circle_size));
-            osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.hp_drain));
-            osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.overall_difficulty));
+            osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.approach_rate));
+            osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.circle_size));
+            osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.hp_drain));
+            osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.overall_difficulty));
         } else {
-            osu_binary::write_f32(buffer, static_cast<float>(beatmap.approach_rate));
-            osu_binary::write_f32(buffer, static_cast<float>(beatmap.circle_size));
-            osu_binary::write_f32(buffer, static_cast<float>(beatmap.hp_drain));
-            osu_binary::write_f32(buffer, static_cast<float>(beatmap.overall_difficulty));
+            osu_binary::write_f32(entry, static_cast<float>(beatmap.approach_rate));
+            osu_binary::write_f32(entry, static_cast<float>(beatmap.circle_size));
+            osu_binary::write_f32(entry, static_cast<float>(beatmap.hp_drain));
+            osu_binary::write_f32(entry, static_cast<float>(beatmap.overall_difficulty));
         }
 
-        osu_binary::write_f64(buffer, beatmap.slider_velocity);
+        osu_binary::write_f64(entry, beatmap.slider_velocity);
 
         if (!old_diff_format) {
-            write_star_ratings(buffer, beatmap.star_rating_standard, use_float_star);
-            write_star_ratings(buffer, beatmap.star_rating_taiko, use_float_star);
-            write_star_ratings(buffer, beatmap.star_rating_ctb, use_float_star);
-            write_star_ratings(buffer, beatmap.star_rating_mania, use_float_star);
+            write_star_ratings(entry, beatmap.star_rating_standard, use_float_star);
+            write_star_ratings(entry, beatmap.star_rating_taiko, use_float_star);
+            write_star_ratings(entry, beatmap.star_rating_ctb, use_float_star);
+            write_star_ratings(entry, beatmap.star_rating_mania, use_float_star);
         }
 
-        osu_binary::write_i32(buffer, beatmap.drain_time);
-        osu_binary::write_i32(buffer, beatmap.total_time);
-        osu_binary::write_i32(buffer, beatmap.audio_preview_time);
+        osu_binary::write_i32(entry, beatmap.drain_time);
+        osu_binary::write_i32(entry, beatmap.total_time);
+        osu_binary::write_i32(entry, beatmap.audio_preview_time);
 
-        osu_binary::write_i32(buffer, static_cast<int32_t>(beatmap.timing_points.size()));
+        osu_binary::write_i32(entry, static_cast<int32_t>(beatmap.timing_points.size()));
 
         for (const auto& timing : beatmap.timing_points) {
-            osu_binary::write_f64(buffer, timing.bpm);
-            osu_binary::write_f64(buffer, timing.offset);
-            osu_binary::write_bool(buffer, timing.inherited != 0);
+            osu_binary::write_f64(entry, timing.bpm);
+            osu_binary::write_f64(entry, timing.offset);
+            osu_binary::write_bool(entry, timing.inherited != 0);
         }
 
-        osu_binary::write_i32(buffer, beatmap.difficulty_id);
-        osu_binary::write_i32(buffer, beatmap.beatmap_id);
-        osu_binary::write_i32(buffer, beatmap.thread_id);
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.grade_standard));
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.grade_taiko));
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.grade_ctb));
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.grade_mania));
-        osu_binary::write_i16(buffer, static_cast<int16_t>(beatmap.local_offset));
-        osu_binary::write_f32(buffer, static_cast<float>(beatmap.stack_leniency));
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.mode));
-        osu_binary::write_string(buffer, beatmap.source);
-        osu_binary::write_string(buffer, beatmap.tags);
-        osu_binary::write_i16(buffer, static_cast<int16_t>(beatmap.online_offset));
-        osu_binary::write_string(buffer, beatmap.title_font);
-        osu_binary::write_bool(buffer, beatmap.unplayed != 0);
-        osu_binary::write_i64(buffer, beatmap.last_played);
-        osu_binary::write_bool(buffer, beatmap.is_osz2 != 0);
-        osu_binary::write_string(buffer, beatmap.folder_name);
-        osu_binary::write_i64(buffer, beatmap.last_checked);
-        osu_binary::write_bool(buffer, beatmap.ignore_sounds != 0);
-        osu_binary::write_bool(buffer, beatmap.ignore_skin != 0);
-        osu_binary::write_bool(buffer, beatmap.disable_storyboard != 0);
-        osu_binary::write_bool(buffer, beatmap.disable_video != 0);
-        osu_binary::write_bool(buffer, beatmap.visual_override != 0);
+        osu_binary::write_i32(entry, beatmap.difficulty_id);
+        osu_binary::write_i32(entry, beatmap.beatmap_id);
+        osu_binary::write_i32(entry, beatmap.thread_id);
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.grade_standard));
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.grade_taiko));
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.grade_ctb));
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.grade_mania));
+        osu_binary::write_i16(entry, static_cast<int16_t>(beatmap.local_offset));
+        osu_binary::write_f32(entry, static_cast<float>(beatmap.stack_leniency));
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.mode));
+        osu_binary::write_string(entry, beatmap.source);
+        osu_binary::write_string(entry, beatmap.tags);
+        osu_binary::write_i16(entry, static_cast<int16_t>(beatmap.online_offset));
+        osu_binary::write_string(entry, beatmap.title_font);
+        osu_binary::write_bool(entry, beatmap.unplayed != 0);
+        osu_binary::write_i64(entry, beatmap.last_played);
+        osu_binary::write_bool(entry, beatmap.is_osz2 != 0);
+        osu_binary::write_string(entry, beatmap.folder_name);
+        osu_binary::write_i64(entry, beatmap.last_checked);
+        osu_binary::write_bool(entry, beatmap.ignore_sounds != 0);
+        osu_binary::write_bool(entry, beatmap.ignore_skin != 0);
+        osu_binary::write_bool(entry, beatmap.disable_storyboard != 0);
+        osu_binary::write_bool(entry, beatmap.disable_video != 0);
+        osu_binary::write_bool(entry, beatmap.visual_override != 0);
 
         if (old_diff_format) {
-            osu_binary::write_i16(buffer, static_cast<int16_t>(beatmap.unknown.value_or(0)));
+            osu_binary::write_i16(entry, static_cast<int16_t>(beatmap.unknown.value_or(0)));
         }
 
-        osu_binary::write_i32(buffer, beatmap.last_modified);
-        osu_binary::write_u8(buffer, static_cast<uint8_t>(beatmap.mania_scroll_speed));
+        osu_binary::write_i32(entry, beatmap.last_modified);
+        osu_binary::write_u8(entry, static_cast<uint8_t>(beatmap.mania_scroll_speed));
+
+        if (has_entry_size) {
+            osu_binary::write_i32(buffer, static_cast<int32_t>(entry.size()));
+        }
+        buffer.insert(buffer.end(), entry.begin(), entry.end());
     }
 
     osu_binary::write_i32(buffer, data->permissions);

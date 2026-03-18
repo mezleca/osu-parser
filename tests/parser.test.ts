@@ -131,6 +131,22 @@ describe("beatmap parser", () => {
 
         parser.free();
     });
+
+    test("roundtrip write", () => {
+        const file_path = path.join(ROOT, "beatmaps/1636774.osu");
+        roundtrip(
+            () => new BeatmapParser(),
+            file_path,
+            (first, second) => {
+                expect(second.version).toBe(first.version);
+                expect(second.General.AudioFilename).toBe(first.General.AudioFilename);
+                expect(second.Metadata.Creator).toBe(first.Metadata.Creator);
+                expect(second.Difficulty.SliderMultiplier).toBeCloseTo(first.Difficulty.SliderMultiplier, 6);
+                expect(second.Events.background?.filename).toBe(first.Events.background?.filename);
+                expect(second.HitObjects.length).toBe(first.HitObjects.length);
+            }
+        );
+    });
 });
 
 describe("osu!.db parser", () => {
@@ -246,6 +262,21 @@ describe("replay parser", () => {
             parser.free();
         });
     }
+
+    test("roundtrip write", () => {
+        const file_path = path.join(ROOT, files.replays[0]);
+        roundtrip(
+            () => new OsuReplayParser(),
+            file_path,
+            (first, second) => {
+                expect(second.replay_md5).toBe(first.replay_md5);
+                expect(second.player_name).toBe(first.player_name);
+                expect(second.replay_data_length).toBe(first.replay_data_length);
+                expect(second.replay_data.length).toBe(first.replay_data.length);
+                expect(second.online_score_id).toBe(first.online_score_id);
+            }
+        );
+    });
 });
 
 describe("concurrency", () => {
@@ -335,5 +366,20 @@ describe("scores.db parser", () => {
         expect(Array.isArray(data.beatmaps)).toBe(true);
 
         parser.free();
+    });
+
+    test("roundtrip write", () => {
+        const file_path = path.join(ROOT, files.scores_db);
+        roundtrip(
+            () => new OsuScoresDbParser(),
+            file_path,
+            (first, second) => {
+                expect(second.beatmaps_count).toBe(first.beatmaps_count);
+                if (first.beatmaps.length > 0) {
+                    expect(second.beatmaps[0].beatmap_md5).toBe(first.beatmaps[0].beatmap_md5);
+                    expect(second.beatmaps[0].scores.length).toBe(first.beatmaps[0].scores.length);
+                }
+            }
+        );
     });
 });

@@ -3,3 +3,4 @@ build
 dist
 prebuilds
 osu-beatmap-parser
+vendor

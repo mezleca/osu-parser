@@ -43,8 +43,8 @@ namespace osu_binary {
                 if (offset + 2 > size) {
                     return false;
                 }
-                const uint16_t xlen = static_cast<uint16_t>(data[offset]) |
-                                      (static_cast<uint16_t>(data[offset + 1]) << 8);
+                const uint16_t xlen =
+                    static_cast<uint16_t>(data[offset]) | (static_cast<uint16_t>(data[offset + 1]) << 8);
                 offset += 2;
                 if (offset + xlen > size) {
                     return false;
@@ -80,14 +80,10 @@ namespace osu_binary {
                     return false;
                 }
 
-                const mz_ulong header_crc = mz_crc32(
-                    MZ_CRC32_INIT,
-                    data + member_offset,
-                    offset - member_offset);
+                const mz_ulong header_crc = mz_crc32(MZ_CRC32_INIT, data + member_offset, offset - member_offset);
 
                 const uint16_t expected_crc16 =
-                    static_cast<uint16_t>(data[offset]) |
-                    (static_cast<uint16_t>(data[offset + 1]) << 8);
+                    static_cast<uint16_t>(data[offset]) | (static_cast<uint16_t>(data[offset + 1]) << 8);
 
                 if ((header_crc & 0xFFFFu) != expected_crc16) {
                     return false;
@@ -137,24 +133,20 @@ namespace osu_binary {
             }
 
             // CRC32 of uncompressed data.
-            const mz_ulong expected_crc =
-                static_cast<mz_ulong>(data[footer_offset]) |
-                (static_cast<mz_ulong>(data[footer_offset + 1]) << 8) |
-                (static_cast<mz_ulong>(data[footer_offset + 2]) << 16) |
-                (static_cast<mz_ulong>(data[footer_offset + 3]) << 24);
+            const mz_ulong expected_crc = static_cast<mz_ulong>(data[footer_offset]) |
+                                          (static_cast<mz_ulong>(data[footer_offset + 1]) << 8) |
+                                          (static_cast<mz_ulong>(data[footer_offset + 2]) << 16) |
+                                          (static_cast<mz_ulong>(data[footer_offset + 3]) << 24);
 
             // ISIZE: uncompressed size modulo 2^32.
-            const mz_ulong expected_size =
-                static_cast<mz_ulong>(data[footer_offset + 4]) |
-                (static_cast<mz_ulong>(data[footer_offset + 5]) << 8) |
-                (static_cast<mz_ulong>(data[footer_offset + 6]) << 16) |
-                (static_cast<mz_ulong>(data[footer_offset + 7]) << 24);
+            const mz_ulong expected_size = static_cast<mz_ulong>(data[footer_offset + 4]) |
+                                           (static_cast<mz_ulong>(data[footer_offset + 5]) << 8) |
+                                           (static_cast<mz_ulong>(data[footer_offset + 6]) << 16) |
+                                           (static_cast<mz_ulong>(data[footer_offset + 7]) << 24);
 
             const size_t member_output_offset = output.size() - static_cast<size_t>(stream.total_out);
-            const mz_ulong actual_crc = mz_crc32(
-                MZ_CRC32_INIT,
-                output.data() + member_output_offset,
-                static_cast<size_t>(stream.total_out));
+            const mz_ulong actual_crc =
+                mz_crc32(MZ_CRC32_INIT, output.data() + member_output_offset, static_cast<size_t>(stream.total_out));
 
             if (actual_crc != expected_crc) {
                 return false;
@@ -178,8 +170,8 @@ namespace osu_binary {
         stream.next_in = const_cast<unsigned char*>(input.data());
         stream.avail_in = static_cast<mz_uint32>(input.size());
 
-        if (mz_deflateInit2(&stream, MZ_BEST_COMPRESSION, MZ_DEFLATED, -MZ_DEFAULT_WINDOW_BITS, 8, MZ_DEFAULT_STRATEGY) !=
-            MZ_OK) {
+        if (mz_deflateInit2(&stream, MZ_BEST_COMPRESSION, MZ_DEFLATED, -MZ_DEFAULT_WINDOW_BITS, 8,
+                            MZ_DEFAULT_STRATEGY) != MZ_OK) {
             return false;
         }
 

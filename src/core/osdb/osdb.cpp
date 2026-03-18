@@ -49,7 +49,6 @@ static int osdb_version_to_code(const std::string& version) {
     return 0;
 }
 
-
 bool osdb_parser::parse(std::string location) {
     if (data == nullptr) {
         last_error = "parser data is null";
