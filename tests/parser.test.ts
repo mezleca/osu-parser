@@ -219,22 +219,6 @@ describe("scores.db parser", () => {
     });
 });
 
-describe("replay parser", () => {
-    for (const name of files.replays) {
-        test(`parse ${name}`, () => {
-            const parser = new OsuReplayParser();
-            const file_path = path.join(ROOT, name);
-
-            expect(() => parser.parse(file_path)).not.toThrow();
-            const data = parser.get();
-            expect(data).toBeTruthy();
-            expect(typeof data.replay_md5).toBe("string");
-
-            parser.free();
-        });
-    }
-});
-
 describe("osdb parser", () => {
     test("parse file", () => {
         const parser = new OsdbParser();
@@ -260,6 +244,22 @@ describe("osdb parser", () => {
             }
         );
     });
+});
+
+describe("replay parser", () => {
+    for (const name of files.replays) {
+        test(`parse ${name}`, () => {
+            const parser = new OsuReplayParser();
+            const file_path = path.join(ROOT, name);
+
+            expect(() => parser.parse(file_path)).not.toThrow();
+            const data = parser.get();
+            expect(data).toBeTruthy();
+            expect(typeof data.replay_md5).toBe("string");
+
+            parser.free();
+        });
+    }
 });
 
 describe("concurrency", () => {
