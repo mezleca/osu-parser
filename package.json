@@ -1,7 +1,7 @@
 {
     "name": "osu-parser",
     "version": "0.1.0",
-    "description": "osu parser",
+    "description": "@rel-packages/osu-parser",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "commonjs",
