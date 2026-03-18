@@ -437,6 +437,8 @@ export interface NativeBindings {
     osu_db_parser_write(handle: bigint): Promise<boolean>;
     osu_db_parser_last_error(handle: bigint): string | null;
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
+    osu_db_parser_get_header(handle: bigint): Omit<OsuLegacyDatabase, "beatmaps">;
+    osu_db_parser_get_beatmaps_range(handle: bigint, start: number, count: number): OsuDbBeatmap[];
     osu_db_parser_update(handle: bigint, patch: OsuDbUpdate): boolean;
     osu_db_parser_update_duration(handle: bigint, updates: { md5: string; duration?: number | null }[]): boolean;
     osu_db_parser_get_by_name(handle: bigint, key: OsuDbKey): unknown;

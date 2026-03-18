@@ -34,6 +34,10 @@ const resolve_fns = (prefix: string) => {
         get: n[`${prefix}_get`] as (handle: bigint) => unknown,
         last_error: n[`${prefix}_last_error`] as (handle: bigint) => string | null,
         get_by_name: n[`${prefix}_get_by_name`] as ((handle: bigint, key: string) => unknown) | undefined,
+        get_header: n[`${prefix}_get_header`] as ((handle: bigint) => unknown) | undefined,
+        get_beatmaps_range: n[`${prefix}_get_beatmaps_range`] as
+            | ((handle: bigint, start: number, count: number) => unknown)
+            | undefined,
         update: n[`${prefix}_update`] as ((handle: bigint, patch: unknown) => boolean) | undefined,
         filter_by_properties: n[`${prefix}_filter_by_properties`] as
             | ((handle: bigint, properties: unknown) => unknown)
@@ -144,6 +148,26 @@ export class BeatmapParser extends UpdatableParser<OsuFileFormat, BeatmapKey, Be
 export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
     constructor() {
         super("osu_db_parser");
+    }
+
+    get_header(): Omit<OsuLegacyDatabase, "beatmaps"> {
+        this.assert_handle();
+        const fn = (this.fns as any).get_header as ((handle: bigint) => unknown) | undefined;
+        if (!fn) {
+            throw new Error(`${this.prefix}.get_header not implemented`);
+        }
+        return fn(this.handle) as Omit<OsuLegacyDatabase, "beatmaps">;
+    }
+
+    get_beatmaps_range(start: number, count: number): OsuDbBeatmap[] {
+        this.assert_handle();
+        const fn = (this.fns as any).get_beatmaps_range as
+            | ((handle: bigint, start: number, count: number) => unknown)
+            | undefined;
+        if (!fn) {
+            throw new Error(`${this.prefix}.get_beatmaps_range not implemented`);
+        }
+        return fn(this.handle, start, count) as OsuDbBeatmap[];
     }
 
     filter_by_properties(properties: OsuDbFilterProperties) {
