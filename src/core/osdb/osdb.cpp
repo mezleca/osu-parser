@@ -128,6 +128,7 @@ bool osdb_parser::parse(std::string location) {
     std::vector<uint8_t> buffer;
     if (!osu_binary::read_file_buffer(this->location, buffer)) {
         last_error = "failed to read file";
+        *data = osdb_data();
         return false;
     }
 
@@ -139,6 +140,7 @@ bool osdb_parser::parse(std::string location) {
         const int version = osdb_version_to_code(version_string);
         if (version == 0) {
             last_error = "invalid osdb version";
+            *data = osdb_data();
             return false;
         }
 
@@ -149,6 +151,7 @@ bool osdb_parser::parse(std::string location) {
             std::vector<uint8_t> compressed(buffer.begin() + static_cast<std::ptrdiff_t>(cursor.offset), buffer.end());
             if (!gzip_decompress(compressed, decompressed)) {
                 last_error = "failed to decompress osdb data";
+                *data = osdb_data();
                 return false;
             }
 
@@ -220,6 +223,7 @@ bool osdb_parser::parse(std::string location) {
         const std::string footer = osu_binary::read_string2(cursor);
         if (footer != "By Piotrekol") {
             last_error = "invalid osdb footer";
+            *data = osdb_data();
             return false;
         }
 

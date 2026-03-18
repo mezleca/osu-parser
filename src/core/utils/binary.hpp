@@ -19,7 +19,16 @@ namespace osu_binary {
     }
 
     inline void ensure_range(const binary_cursor& cursor, size_t bytes) {
-        if (!cursor.buffer || cursor.offset + bytes > cursor.buffer->size()) {
+        if (!cursor.buffer) {
+            throw std::runtime_error("binary read out of range");
+        }
+
+        if (cursor.offset > cursor.buffer->size()) {
+            throw std::runtime_error("binary read out of range");
+        }
+
+        const size_t remaining = cursor.buffer->size() - cursor.offset;
+        if (bytes > remaining) {
             throw std::runtime_error("binary read out of range");
         }
     }

@@ -240,7 +240,7 @@ describe("osdb parser", () => {
         const parser = new OsdbParser();
         const file_path = path.join(ROOT, files.osdb);
 
-        expect(() => parser.parse(file_path)).not.toThrow();
+        parser.parse(file_path);
         const data = parser.get();
         expect(data).toBeTruthy();
         expect(Array.isArray(data.collections)).toBe(true);
