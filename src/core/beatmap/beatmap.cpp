@@ -4,8 +4,28 @@
 #include <charconv>
 #include <functional>
 #include <fstream>
+#include <iostream>
 #include <string_view>
 #include <unordered_set>
+
+static void debug_print(const std::string& message) {
+    std::cerr << "[beatmap] " << message << "\n";
+}
+
+static std::string debug_preview(std::string_view content, size_t length) {
+    size_t size = std::min(content.size(), length);
+    std::string preview(content.substr(0, size));
+    for (char& c : preview) {
+        if (c == '\r') {
+            c = 'R';
+        } else if (c == '\n') {
+            c = 'N';
+        } else if (static_cast<unsigned char>(c) < 32) {
+            c = '.';
+        }
+    }
+    return preview;
+}
 
 static const std::unordered_set<std::string>& get_video_extensions() {
     static const std::unordered_set<std::string> extensions = {".mp4", ".avi", ".flv", ".mov",
@@ -549,8 +569,15 @@ bool beatmap_parser::parse(std::string location) {
         return false;
     }
 
+    debug_print("file: " + this->location);
+    debug_print("size: " + std::to_string(content.size()));
+    debug_print("preview: " + debug_preview(content, 80));
+
+    const int parsed_version = parse_version(content);
+    debug_print("parsed version: " + std::to_string(parsed_version));
+
     *data = osu_beatmap();
-    data->version = parse_version(content);
+    data->version = parsed_version;
     data->general = parse_general(get_section(content, "General"));
     data->editor = parse_editor(get_section(content, "Editor"));
     data->metadata = parse_metadata(get_section(content, "Metadata"));
@@ -563,6 +590,7 @@ bool beatmap_parser::parse(std::string location) {
     data->colours = parse_colours(get_section(content, "Colours"));
     data->hit_objects = parse_hit_objects(get_section(content, "HitObjects"));
 
+    data->version = parsed_version;
     last_error.clear();
     return true;
 }
