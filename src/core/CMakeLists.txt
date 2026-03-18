@@ -1,3 +1,7 @@
+set(ZLIB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(ZLIB_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(ZLIB_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+
 file(GLOB_RECURSE CORE_SOURCES CONFIGURE_DEPENDS
     "${CMAKE_CURRENT_LIST_DIR}/**/*.cpp"
 )
@@ -11,6 +15,7 @@ target_include_directories(osu_parser_core PUBLIC "${CMAKE_CURRENT_LIST_DIR}")
 set_target_properties(osu_parser_core PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
 find_package(ZLIB QUIET)
+
 if (NOT ZLIB_FOUND)
     include(FetchContent)
     FetchContent_Declare(
