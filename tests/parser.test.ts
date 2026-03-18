@@ -60,6 +60,14 @@ describe("beatmap parser", () => {
 
         const data = parser.get();
 
+        if (data.version !== 3) {
+            // debug for windows CI
+            console.log("version", data.version, "type", typeof data.version);
+            console.log("raw", (data as any).__version_raw);
+            console.log("descriptor", Object.getOwnPropertyDescriptor(data, "version"));
+            console.log("keys", Object.keys(data).slice(0, 10));
+        }
+
         expect(data.version).toBe(3);
         expect(data.General.AudioFilename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.mp3");
         expect(data.General.PreviewTime).toBe(91764);
