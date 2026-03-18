@@ -520,17 +520,20 @@ static int parse_version(std::string_view content) {
 
 static bool read_file_text(const std::string& location, std::string& out) {
     std::ifstream file(location, std::ios::binary | std::ios::ate);
+
     if (!file.is_open()) {
         return false;
     }
 
     const std::ifstream::pos_type size = file.tellg();
+
     if (size < 0) {
         return false;
     }
 
     out.resize(static_cast<size_t>(size));
     file.seekg(0, std::ios::beg);
+
     if (!file.read(out.data(), static_cast<std::streamsize>(out.size()))) {
         out.clear();
         return false;
@@ -561,6 +564,7 @@ bool beatmap_parser::parse(std::string location) {
 
     this->location = std::move(location);
     std::string content;
+
     if (!read_file_text(this->location, content)) {
         last_error = "failed to read file";
         return false;
@@ -594,15 +598,18 @@ bool beatmap_parser::write() {
     }
 
     beatmap_writer writer;
+
     writer.line("osu file format v" + std::to_string(data->version));
     writer.blank();
 
     writer.section("General");
     writer.key_value("AudioFilename", data->general.audio_filename);
     writer.key_value("AudioLeadIn", data->general.audio_lead_in);
+
     if (!data->general.audio_hash.empty()) {
         writer.key_value("AudioHash", data->general.audio_hash);
     }
+
     writer.key_value("PreviewTime", data->general.preview_time);
     writer.key_value("Countdown", data->general.countdown);
     writer.key_value("SampleSet", data->general.sample_set);
@@ -613,98 +620,125 @@ bool beatmap_parser::write() {
     writer.key_value("UseSkinSprites", data->general.use_skin_sprites);
     writer.key_value("AlwaysShowPlayfield", data->general.always_show_playfield);
     writer.key_value("OverlayPosition", data->general.overlay_position);
+
     if (!data->general.skin_preference.empty()) {
         writer.key_value("SkinPreference", data->general.skin_preference);
     }
+
     writer.key_value("EpilepsyWarning", data->general.epilepsy_warning);
     writer.key_value("CountdownOffset", data->general.countdown_offset);
     writer.key_value("SpecialStyle", data->general.special_style);
     writer.key_value("WidescreenStoryboard", data->general.widescreen_storyboard);
     writer.key_value("SamplesMatchPlaybackRate", data->general.samples_match_playback_rate);
+
     writer.blank();
 
     writer.section("Editor");
+
     if (!data->editor.bookmarks.empty()) {
         writer.key_value("Bookmarks", beatmap_writer::join_ints(data->editor.bookmarks, ','));
     }
+
     writer.key_value_double("DistanceSpacing", data->editor.distance_spacing);
     writer.key_value("BeatDivisor", data->editor.beat_divisor);
     writer.key_value("GridSize", data->editor.grid_size);
     writer.key_value_double("TimelineZoom", data->editor.timeline_zoom);
+
     writer.blank();
 
     writer.section("Metadata");
     writer.key_value("Title", data->metadata.title);
+
     if (!data->metadata.title_unicode.empty()) {
         writer.key_value("TitleUnicode", data->metadata.title_unicode);
     }
+
     writer.key_value("Artist", data->metadata.artist);
+
     if (!data->metadata.artist_unicode.empty()) {
         writer.key_value("ArtistUnicode", data->metadata.artist_unicode);
     }
+
     writer.key_value("Creator", data->metadata.creator);
     writer.key_value("Version", data->metadata.version);
+
     if (!data->metadata.source.empty()) {
         writer.key_value("Source", data->metadata.source);
     }
+
     if (!data->metadata.tags.empty()) {
         writer.key_value("Tags", data->metadata.tags);
     }
+
     writer.key_value("BeatmapID", data->metadata.beatmap_id);
     writer.key_value("BeatmapSetID", data->metadata.beatmap_set_id);
+
     writer.blank();
 
     writer.section("Difficulty");
+
     writer.key_value_double("HPDrainRate", data->difficulty.hp_drain_rate);
     writer.key_value_double("CircleSize", data->difficulty.circle_size);
     writer.key_value_double("OverallDifficulty", data->difficulty.overall_difficulty);
     writer.key_value_double("ApproachRate", data->difficulty.approach_rate);
     writer.key_value_double("SliderMultiplier", data->difficulty.slider_multiplier);
     writer.key_value_double("SliderTickRate", data->difficulty.slider_tick_rate);
+
     writer.blank();
 
     writer.section("Events");
+
     if (data->video.has_value()) {
         const auto& v = data->video.value();
         writer.line("Video," + std::to_string(v.start_time) + ",\"" + v.filename + "\"," + std::to_string(v.x_offset) +
                     "," + std::to_string(v.y_offset));
     }
+
     if (data->background.has_value()) {
         const auto& b = data->background.value();
         writer.line("0,0,\"" + b.filename + "\"," + std::to_string(b.x_offset) + "," + std::to_string(b.y_offset));
     }
+
     for (const auto& br : data->breaks) {
         writer.line("2," + std::to_string(br.start_time) + "," + std::to_string(br.end_time));
     }
+
     writer.blank();
 
     writer.section("TimingPoints");
+
     for (const auto& tp : data->timing_points) {
         writer.line(std::to_string(tp.time) + "," + beatmap_writer::format_double(tp.beat_length) + "," +
                     std::to_string(tp.meter) + "," + std::to_string(tp.sample_set) + "," +
                     std::to_string(tp.sample_index) + "," + std::to_string(tp.volume) + "," +
                     std::to_string(tp.uninherited) + "," + std::to_string(tp.effects));
     }
+
     writer.blank();
 
     writer.section("Colours");
+
     for (size_t i = 0; i < data->colours.combos.size(); i++) {
         const auto& c = data->colours.combos[i];
         writer.line("Combo" + std::to_string(i + 1) + " : " + std::to_string(c[0]) + "," + std::to_string(c[1]) + "," +
                     std::to_string(c[2]));
     }
+
     if (data->colours.slider_track_override.has_value()) {
         const auto& c = data->colours.slider_track_override.value();
         writer.line("SliderTrackOverride : " + std::to_string(c[0]) + "," + std::to_string(c[1]) + "," +
                     std::to_string(c[2]));
     }
+
     if (data->colours.slider_border.has_value()) {
         const auto& c = data->colours.slider_border.value();
         writer.line("SliderBorder : " + std::to_string(c[0]) + "," + std::to_string(c[1]) + "," + std::to_string(c[2]));
     }
+
     writer.blank();
 
     writer.section("HitObjects");
+
     for (const auto& ho : data->hit_objects) {
         std::ostringstream line;
         line << ho.x << "," << ho.y << "," << ho.time << "," << ho.type << "," << ho.hit_sound;
@@ -716,15 +750,20 @@ bool beatmap_parser::write() {
 
         if (is_slider) {
             long long slides_plus = static_cast<long long>(ho.slides) + 1;
+
             if (slides_plus > INT_MAX) {
                 slides_plus = INT_MAX;
             }
+
             const int edge_count = std::max(1, static_cast<int>(slides_plus));
             std::vector<int> edge_sounds = ho.edge_sounds;
+
             if (static_cast<int>(edge_sounds.size()) != edge_count) {
                 edge_sounds.assign(edge_count, 0);
             }
+
             std::vector<std::pair<int, int>> edge_sets = ho.edge_sets;
+
             if (static_cast<int>(edge_sets.size()) != edge_count) {
                 edge_sets.assign(edge_count, {0, 0});
             }

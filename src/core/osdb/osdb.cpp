@@ -1,5 +1,3 @@
-
-#include <algorithm>
 #include <chrono>
 #include <cstring>
 
@@ -55,11 +53,13 @@ bool osdb_parser::parse(std::string location) {
         return false;
     }
 
-    this->location = std::move(location);
+    std::string target_location = std::move(location);
     std::vector<uint8_t> buffer;
-    if (!osu_binary::read_file_buffer(this->location, buffer)) {
+
+    if (!osu_binary::read_file_buffer(target_location, buffer)) {
         last_error = "failed to read file";
         *data = osdb_data();
+        this->location.clear();
         return false;
     }
 
@@ -69,14 +69,18 @@ bool osdb_parser::parse(std::string location) {
 
         const std::string version_string = osu_binary::read_string2(cursor);
         const int version = osdb_version_to_code(version_string);
+
         if (version == 0) {
             last_error = "invalid osdb version";
             *data = osdb_data();
+            this->location.clear();
             return false;
         }
 
         const bool is_minimal = ends_with(version_string, "min");
-        data->version_string = version_string;
+        osdb_data temp;
+
+        temp.version_string = version_string;
         std::vector<uint8_t> decompressed;
 
         if (version >= 7) {
@@ -84,6 +88,7 @@ bool osdb_parser::parse(std::string location) {
             if (!osu_binary::gzip_decompress(compressed, decompressed)) {
                 last_error = "failed to decompress osdb data";
                 *data = osdb_data();
+                this->location.clear();
                 return false;
             }
 
@@ -91,13 +96,21 @@ bool osdb_parser::parse(std::string location) {
             osu_binary::read_string2(cursor);
         }
 
-        data->save_data = osu_binary::read_i64(cursor);
-        data->last_editor = osu_binary::read_string2(cursor);
-        data->count = osu_binary::read_i32(cursor);
-        data->collections.clear();
-        data->collections.reserve(static_cast<size_t>(std::max(0, data->count)));
+        temp.save_data = osu_binary::read_i64(cursor);
+        temp.last_editor = osu_binary::read_string2(cursor);
+        temp.count = osu_binary::read_i32(cursor);
 
-        for (int32_t i = 0; i < data->count; i++) {
+        if (temp.count < 0) {
+            last_error = "invalid collection count";
+            *data = osdb_data();
+            this->location.clear();
+            return false;
+        }
+
+        temp.collections.clear();
+        temp.collections.reserve(static_cast<size_t>(temp.count));
+
+        for (int32_t i = 0; i < temp.count; i++) {
             osdb_collection collection;
             collection.name = osu_binary::read_string2(cursor);
 
@@ -108,11 +121,20 @@ bool osdb_parser::parse(std::string location) {
             }
 
             const int32_t beatmaps_count = osu_binary::read_i32(cursor);
+
+            if (beatmaps_count < 0) {
+                last_error = "invalid beatmaps count";
+                *data = osdb_data();
+                this->location.clear();
+                return false;
+            }
+
             collection.beatmaps.clear();
-            collection.beatmaps.reserve(static_cast<size_t>(std::max(0, beatmaps_count)));
+            collection.beatmaps.reserve(static_cast<size_t>(beatmaps_count));
 
             for (int32_t j = 0; j < beatmaps_count; j++) {
                 osdb_beatmap beatmap;
+
                 beatmap.difficulty_id = osu_binary::read_i32(cursor);
                 beatmap.beatmapset_id = version >= 2 ? osu_binary::read_i32(cursor) : -1;
 
@@ -142,32 +164,44 @@ bool osdb_parser::parse(std::string location) {
             if (version >= 3) {
                 const int32_t hash_count = osu_binary::read_i32(cursor);
                 collection.hash_only_beatmaps.clear();
-                collection.hash_only_beatmaps.reserve(static_cast<size_t>(std::max(0, hash_count)));
+                if (hash_count < 0) {
+                    last_error = "invalid hash count";
+                    *data = osdb_data();
+                    this->location.clear();
+                    return false;
+                }
+                collection.hash_only_beatmaps.reserve(static_cast<size_t>(hash_count));
 
                 for (int32_t j = 0; j < hash_count; j++) {
                     collection.hash_only_beatmaps.push_back(osu_binary::read_string2(cursor));
                 }
             }
 
-            data->collections.push_back(std::move(collection));
+            temp.collections.push_back(std::move(collection));
         }
 
         const std::string footer = osu_binary::read_string2(cursor);
+
         if (footer != "By Piotrekol") {
             last_error = "invalid osdb footer";
             *data = osdb_data();
+            this->location.clear();
             return false;
         }
 
+        *data = std::move(temp);
+        this->location = std::move(target_location);
         last_error.clear();
         return true;
     } catch (const std::exception& e) {
         last_error = e.what();
         *data = osdb_data();
+        this->location.clear();
         return false;
     } catch (...) {
         last_error = "unknown error";
         *data = osdb_data();
+        this->location.clear();
         return false;
     }
 }
@@ -180,6 +214,7 @@ bool osdb_parser::write() {
 
     const std::string version_string = data->version_string.empty() ? "o!dm8min" : data->version_string;
     const int version = osdb_version_to_code(version_string);
+
     if (version == 0) {
         last_error = "invalid osdb version";
         return false;

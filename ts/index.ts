@@ -98,12 +98,18 @@ class UpdatableParser<TGet extends object, TKey extends keyof TGet & string, TUp
 
     get_by_name<K extends TKey>(key: K): TGet[K] {
         this.assert_handle();
-        return this.fns.get_by_name!(this.handle, key) as TGet[K];
+        if (!this.fns.get_by_name) {
+            throw new Error(`${this.prefix}.get_by_name not implemented`);
+        }
+        return this.fns.get_by_name(this.handle, key) as TGet[K];
     }
 
     update(patch: TUpdate): this {
         this.assert_handle();
-        const ok = this.fns.update!(this.handle, patch);
+        if (!this.fns.update) {
+            throw new Error(`${this.prefix}.update not implemented`);
+        }
+        const ok = this.fns.update(this.handle, patch);
         if (!ok) {
             const message = this.fns.last_error(this.handle);
             throw new Error(message ? `${this.prefix}.update failed: ${message}` : `${this.prefix}.update failed`);

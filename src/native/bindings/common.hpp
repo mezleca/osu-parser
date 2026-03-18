@@ -65,6 +65,9 @@ namespace osu_bindings {
             if (it == handle_table.end()) {
                 return;
             }
+            if (it->second.refs.load() == 0) {
+                return;
+            }
             const int refs = it->second.refs.fetch_sub(1) - 1;
             if (!it->second.freed.load() || refs > 0) {
                 return;

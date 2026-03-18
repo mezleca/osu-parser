@@ -9,6 +9,7 @@ static osu_int_float_pair read_int_float_pair(osu_binary::binary_cursor& cursor,
     osu_int_float_pair pair;
 
     uint8_t marker = osu_binary::read_u8(cursor);
+
     if (marker != 0x08) {
         throw std::runtime_error("invalid int-float pair marker");
     }
@@ -16,6 +17,7 @@ static osu_int_float_pair read_int_float_pair(osu_binary::binary_cursor& cursor,
     pair.mod_combination = static_cast<int32_t>(osu_binary::read_i32(cursor));
 
     uint8_t float_marker = osu_binary::read_u8(cursor);
+
     if (use_float) {
         if (float_marker != 0x0C) {
             throw std::runtime_error("invalid float marker");
@@ -128,9 +130,11 @@ static osu_db_beatmap read_beatmap(osu_binary::binary_cursor& cursor, int32_t ve
     beatmap.audio_preview_time = osu_binary::read_i32(cursor);
 
     int32_t timing_count = osu_binary::read_i32(cursor);
+
     if (timing_count < 0) {
         throw std::runtime_error("invalid timing point count");
     }
+
     beatmap.timing_points.reserve(static_cast<size_t>(std::max(0, timing_count)));
 
     for (int32_t i = 0; i < timing_count; i++) {
@@ -197,11 +201,12 @@ bool osu_db_parser::parse(const std::string& location) {
 
     if (!osu_binary::read_file_buffer(location, buffer)) {
         last_error = "failed to read file";
+        *data = osu_legacy_database();
+        this->location.clear();
         return false;
     }
 
     try {
-        this->location = location;
         osu_binary::binary_cursor cursor;
         osu_binary::set_cursor(cursor, buffer);
 
@@ -223,15 +228,18 @@ bool osu_db_parser::parse(const std::string& location) {
         }
 
         data->permissions = osu_binary::read_i32(cursor);
+        this->location = location;
         last_error.clear();
         return true;
     } catch (const std::exception& e) {
         last_error = e.what();
         *data = osu_legacy_database();
+        this->location.clear();
         return false;
     } catch (...) {
         last_error = "unknown error";
         *data = osu_legacy_database();
+        this->location.clear();
         return false;
     }
 }

@@ -1,9 +1,5 @@
 #include "osu.hpp"
-
 #include "utils/binary.hpp"
-
-#include <algorithm>
-#include <climits>
 
 bool osu_replay_parser::parse(const std::string& location) {
     if (data == nullptr) {
@@ -40,6 +36,7 @@ bool osu_replay_parser::parse(const std::string& location) {
         data->life_bar_graph = osu_binary::read_string(cursor);
         data->timestamp = osu_binary::read_i64(cursor);
         data->replay_data_length = osu_binary::read_i32(cursor);
+
         if (data->replay_data_length < 0) {
             throw std::runtime_error("invalid replay data length");
         }
@@ -81,6 +78,7 @@ bool osu_replay_parser::write() {
     }
 
     std::vector<uint8_t> buffer;
+
     osu_binary::write_u8(buffer, static_cast<uint8_t>(data->mode));
     osu_binary::write_i32(buffer, data->version);
     osu_binary::write_string(buffer, data->beatmap_md5);
@@ -105,12 +103,15 @@ bool osu_replay_parser::write() {
     }
 
     const int32_t replay_size = static_cast<int32_t>(data->replay_data.size());
+
     osu_binary::write_i32(buffer, replay_size);
+
     if (replay_size > 0) {
         buffer.insert(buffer.end(), data->replay_data.begin(), data->replay_data.end());
     }
 
     osu_binary::write_i64(buffer, data->online_score_id);
+
     if (data->mods & (1 << 23)) {
         osu_binary::write_f64(buffer, data->additional_mod_info.value_or(0.0));
     }

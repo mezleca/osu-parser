@@ -17,7 +17,7 @@ osu! parser library for Node.js.
 ## usage
 
 ```ts
-import { BeatmapParser } from "@rel-packages/osu-parser-core";
+import { BeatmapParser } from "osu-parser";
 
 const parser = new BeatmapParser();
 

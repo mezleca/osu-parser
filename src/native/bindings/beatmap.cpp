@@ -68,6 +68,14 @@ namespace osu_bindings {
         }
 
         std::string text = value.As<Napi::String>();
+        const std::string whitespace = " \t\n\r\f\v";
+        const size_t start = text.find_first_not_of(whitespace);
+        if (start == std::string::npos) {
+            err = "invalid version format";
+            return false;
+        }
+        const size_t end = text.find_last_not_of(whitespace);
+        text = text.substr(start, end - start + 1);
 
         if (!text.empty() && (text[0] == 'v' || text[0] == 'V')) {
             text.erase(text.begin());

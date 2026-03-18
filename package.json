@@ -1,7 +1,7 @@
 {
-    "name": "@rel-packages/osu-parser-core",
+    "name": "osu-parser",
     "version": "0.1.0",
-    "description": "osu parser core",
+    "description": "osu parser",
     "main": "dist/index.js",
     "types": "dist/index.d.ts",
     "type": "commonjs",

@@ -54,7 +54,13 @@ namespace osu_bindings {
             return false;
         }
 
-        out = value.As<Napi::Number>().Int32Value();
+        const double number = value.As<Napi::Number>().DoubleValue();
+        if (!std::isfinite(number) || std::floor(number) != number || number < INT32_MIN || number > INT32_MAX) {
+            err = std::string("invalid number for ") + key;
+            return false;
+        }
+
+        out = static_cast<int32_t>(number);
         return true;
     }
 
@@ -125,7 +131,13 @@ namespace osu_bindings {
             return false;
         }
 
-        out = value.As<Napi::Number>().Int32Value();
+        const double number = value.As<Napi::Number>().DoubleValue();
+        if (!std::isfinite(number) || std::floor(number) != number || (number != 0.0 && number != 1.0)) {
+            err = std::string("invalid number for ") + key;
+            return false;
+        }
+
+        out = static_cast<int32_t>(number);
         return true;
     }
 

@@ -1,9 +1,7 @@
 #include "osu.hpp"
-
 #include "utils/binary.hpp"
 
 #include <algorithm>
-#include <climits>
 
 bool osu_scores_db_parser::parse(const std::string& location) {
     if (data == nullptr) {
@@ -12,36 +10,44 @@ bool osu_scores_db_parser::parse(const std::string& location) {
     }
 
     std::vector<uint8_t> buffer;
+
     if (!osu_binary::read_file_buffer(location, buffer)) {
         last_error = "failed to read file";
+        *data = osu_scores_db();
+        this->location.clear();
         return false;
     }
 
     try {
-        this->location = location;
         osu_binary::binary_cursor cursor;
         osu_binary::set_cursor(cursor, buffer);
 
         data->version = osu_binary::read_i32(cursor);
         data->beatmaps_count = osu_binary::read_i32(cursor);
+
         if (data->beatmaps_count < 0) {
             throw std::runtime_error("invalid beatmaps count");
         }
+
         data->beatmaps.clear();
         data->beatmaps.reserve(static_cast<size_t>(std::max(0, data->beatmaps_count)));
 
         for (int32_t i = 0; i < data->beatmaps_count; i++) {
             osu_scores_beatmap beatmap;
+
             beatmap.beatmap_md5 = osu_binary::read_string(cursor);
             beatmap.scores_count = osu_binary::read_i32(cursor);
+
             if (beatmap.scores_count < 0) {
                 throw std::runtime_error("invalid scores count");
             }
+
             beatmap.scores.clear();
             beatmap.scores.reserve(static_cast<size_t>(std::max(0, beatmap.scores_count)));
 
             for (int32_t j = 0; j < beatmap.scores_count; j++) {
                 osu_score score;
+
                 score.mode = osu_binary::read_u8(cursor);
                 score.version = osu_binary::read_i32(cursor);
                 score.beatmap_md5 = osu_binary::read_string(cursor);
@@ -60,10 +66,13 @@ bool osu_scores_db_parser::parse(const std::string& location) {
                 score.life_bar_graph = osu_binary::read_string(cursor);
                 score.timestamp = osu_binary::read_i64(cursor);
                 score.replay_data_length = osu_binary::read_i32(cursor);
+
                 if (score.replay_data_length < -1) {
                     throw std::runtime_error("invalid replay data length");
                 }
+
                 score.replay_data.clear();
+
                 if (score.replay_data_length > 0) {
                     osu_binary::ensure_range(cursor, static_cast<size_t>(score.replay_data_length));
                     score.replay_data.assign(buffer.begin() + static_cast<std::ptrdiff_t>(cursor.offset),
@@ -85,15 +94,18 @@ bool osu_scores_db_parser::parse(const std::string& location) {
             data->beatmaps.push_back(std::move(beatmap));
         }
 
+        this->location = location;
         last_error.clear();
         return true;
     } catch (const std::exception& e) {
         last_error = e.what();
         *data = osu_scores_db();
+        this->location.clear();
         return false;
     } catch (...) {
         last_error = "unknown error";
         *data = osu_scores_db();
+        this->location.clear();
         return false;
     }
 }
@@ -135,11 +147,14 @@ bool osu_scores_db_parser::write() {
             osu_binary::write_i32(buffer, score.mods);
             osu_binary::write_string(buffer, score.life_bar_graph);
             osu_binary::write_i64(buffer, score.timestamp);
+
             int32_t replay_len = score.replay_data_length;
+
             if (replay_len < -1) {
                 last_error = "invalid replay data length";
                 return false;
             }
+
             if (!score.replay_data.empty()) {
                 if (score.replay_data.size() > static_cast<size_t>(INT32_MAX)) {
                     last_error = "replay data too large";
@@ -147,14 +162,18 @@ bool osu_scores_db_parser::write() {
                 }
                 replay_len = static_cast<int32_t>(score.replay_data.size());
             }
+
             if (replay_len > 0 && score.replay_data.size() != static_cast<size_t>(replay_len)) {
                 last_error = "replay data length mismatch";
                 return false;
             }
+
             osu_binary::write_i32(buffer, replay_len);
+
             if (replay_len > 0) {
                 buffer.insert(buffer.end(), score.replay_data.begin(), score.replay_data.end());
             }
+
             osu_binary::write_i64(buffer, score.online_score_id);
 
             if (score.mods & (1 << 23)) {

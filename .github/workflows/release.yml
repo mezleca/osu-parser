@@ -29,7 +29,7 @@ jobs:
 
             - name: install system dependencies (windows)
               if: runner.os == 'Windows'
-              run: choco install ninja
+              run: choco install -y ninja
 
             - name: setup MSVC environment
               if: runner.os == 'Windows'
@@ -48,6 +48,15 @@ jobs:
               uses: KyleMayes/install-llvm-action@v2
               with:
                   version: "20.1.0"
+
+            - name: expose LLVM on PATH
+              if: runner.os == 'Windows'
+              shell: pwsh
+              run: Add-Content -Path $env:GITHUB_PATH -Value 'C:\\Program Files\\LLVM\\bin'
+
+            - name: verify clang
+              if: runner.os == 'Windows'
+              run: clang --version
 
             - name: setup Node.js
               uses: actions/setup-node@v4

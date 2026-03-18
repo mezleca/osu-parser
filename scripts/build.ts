@@ -35,6 +35,7 @@ const compile_native = async () => {
 
     for (const bin_file of BIN_NAMES) {
         if (fs.existsSync(bin_file)) {
+            fs.rmSync(path.join(TARGET_DIR, "osu-beatmap-parser.node"), { force: true });
             fs.copyFileSync(bin_file, path.join(TARGET_DIR, "osu-parser.node"));
 
             const platform = process.platform;
@@ -45,6 +46,7 @@ const compile_native = async () => {
                 fs.mkdirSync(prebuilds_dir, { recursive: true });
             }
 
+            fs.rmSync(path.join(prebuilds_dir, "osu-beatmap-parser.node"), { force: true });
             fs.copyFileSync(bin_file, path.join(prebuilds_dir, "osu-parser.node"));
 
             console.log(`\ncopied binary to ${prebuilds_dir}`);

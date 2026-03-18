@@ -176,6 +176,7 @@ namespace osu_bindings {
         }
 
         std::string err;
+        std::string message;
         bool ok = instance->with_lock([&](osdb_data& data, osdb_parser& parser) {
             Napi::Object patch = info[1].As<Napi::Object>();
             osdb_data temp = data;
@@ -184,23 +185,25 @@ namespace osu_bindings {
                 !get_optional_string(patch, "last_editor", temp.last_editor, err) ||
                 !get_optional_int32(patch, "count", temp.count, err)) {
                 parser.last_error = err;
+                message = parser.last_error;
                 return false;
             }
 
             if (!update_array_field(patch, "collections", temp.collections, parse_osdb_collection, err)) {
                 parser.last_error = err;
+                message = parser.last_error;
                 return false;
             }
 
             temp.count = static_cast<int32_t>(temp.collections.size());
             data = std::move(temp);
             parser.last_error.clear();
+            message.clear();
             return true;
         });
 
         if (!ok) {
-            std::string message = instance->parser.last_error.empty() ? "update failed" : instance->parser.last_error;
-            Napi::Error::New(env, message).ThrowAsJavaScriptException();
+            Napi::Error::New(env, message.empty() ? "update failed" : message).ThrowAsJavaScriptException();
             return env.Undefined();
         }
 

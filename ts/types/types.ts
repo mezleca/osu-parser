@@ -335,7 +335,7 @@ export interface OsuScoreBase {
     additional_mod_info: number | null;
 }
 
-export interface OsuScore extends OsuScoreBase {}
+export type OsuScore = OsuScoreBase;
 
 export interface OsuScoresBeatmap {
     beatmap_md5: string;
@@ -349,7 +349,7 @@ export interface OsuScoresDb {
     beatmaps: OsuScoresBeatmap[];
 }
 
-export interface OsuReplay extends OsuScoreBase {}
+export type OsuReplay = OsuScoreBase;
 
 export interface OsdbBeatmap {
     difficulty_id: number;
