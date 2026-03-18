@@ -6,12 +6,17 @@
     "types": "dist/index.d.ts",
     "type": "commonjs",
     "scripts": {
+        "update:patch": "npm version patch && git push --follow-tags",
+        "update:minor": "npm version minor && git push --follow-tags",
+        "update:major": "npm version major && git push --follow-tags",
+        "prepublishOnly": "npm run compile:tsc && mkdir -p lib",
         "compile:native": "bun scripts/build.ts native",
         "compile:tsc": "tsc",
         "build": "bun scripts/build.ts native && tsc",
         "format": "prettier --write . --ignore-unknown",
         "format:clang": "clang-format -i $(rg --files -g '*.{h,hpp,cpp,cc,cxx}' src)",
-        "test": "bun run build && bun test"
+        "test": "bun run build && bun test",
+        "pretest": "bun run format"
     },
     "files": [
         "dist/index.js",
@@ -32,5 +37,16 @@
     },
     "dependencies": {
         "node-gyp-build": "^4.8.4"
+    },
+    "keywords": [
+        "osu",
+        "beatmap",
+        "parser",
+        "native"
+    ],
+    "author": "mezleca",
+    "license": "ISC",
+    "repository": {
+        "url": "https://github.com/mezleca/osu-parser.git"
     }
 }
