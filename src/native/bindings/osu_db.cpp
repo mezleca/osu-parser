@@ -1,6 +1,9 @@
 #include "common.hpp"
 
+#include <cmath>
+
 #include "osu/osu.hpp"
+#include "osu/filter.hpp"
 #include "parser/parser_base.hpp"
 #include "update_helpers.hpp"
 
@@ -71,6 +74,251 @@ namespace osu_bindings {
     X(get_optional_double, "slider_velocity", slider_velocity)                                                         \
     X(get_optional_double, "stack_leniency", stack_leniency)
 
+    static bool parse_number_range(const Napi::Object& obj, const char* key, osu_filter::range_filter& out,
+                                   std::string& err) {
+        if (!obj.Has(key)) {
+            return true;
+        }
+
+        Napi::Value value = obj.Get(key);
+
+        if (!value.IsObject() || value.IsArray() || value.IsNull()) {
+            err = std::string("invalid range for ") + key;
+            return false;
+        }
+
+        Napi::Object range = value.As<Napi::Object>();
+
+        if (range.Has("min")) {
+            Napi::Value min_val = range.Get("min");
+            if (!min_val.IsNumber()) {
+                err = std::string("invalid range min for ") + key;
+                return false;
+            }
+            out.min = min_val.As<Napi::Number>().DoubleValue();
+            out.has_min = true;
+        }
+
+        if (range.Has("max")) {
+            Napi::Value max_val = range.Get("max");
+            if (!max_val.IsNumber()) {
+                err = std::string("invalid range max for ") + key;
+                return false;
+            }
+            out.max = max_val.As<Napi::Number>().DoubleValue();
+            out.has_max = true;
+        }
+
+        if (out.has_min || out.has_max) {
+            return true;
+        }
+
+        err = std::string("empty range for ") + key;
+        return false;
+    }
+
+    static bool parse_int_list(const Napi::Object& obj, const char* key, std::vector<int32_t>& out, std::string& err) {
+        if (!obj.Has(key)) {
+            return true;
+        }
+
+        Napi::Value value = obj.Get(key);
+
+        if (value.IsNumber()) {
+            const double num = value.As<Napi::Number>().DoubleValue();
+            if (!std::isfinite(num) || std::floor(num) != num || num < INT32_MIN || num > INT32_MAX) {
+                err = std::string("invalid number for ") + key;
+                return false;
+            }
+            out.push_back(static_cast<int32_t>(num));
+            return true;
+        }
+
+        if (!value.IsArray()) {
+            err = std::string("invalid array for ") + key;
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+        out.reserve(out.size() + arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+            if (!item.IsNumber()) {
+                err = std::string("invalid array item for ") + key;
+                return false;
+            }
+            const double num = item.As<Napi::Number>().DoubleValue();
+            if (!std::isfinite(num) || std::floor(num) != num || num < INT32_MIN || num > INT32_MAX) {
+                err = std::string("invalid array item for ") + key;
+                return false;
+            }
+            out.push_back(static_cast<int32_t>(num));
+        }
+
+        return true;
+    }
+
+    static bool parse_string_list(const Napi::Object& obj, const char* key, std::vector<std::string>& out,
+                                  std::string& err) {
+        if (!obj.Has(key)) {
+            return true;
+        }
+
+        Napi::Value value = obj.Get(key);
+
+        if (value.IsString()) {
+            out.push_back(osu_filter::to_lower_copy(value.As<Napi::String>().Utf8Value()));
+            return true;
+        }
+
+        if (!value.IsArray()) {
+            err = std::string("invalid array for ") + key;
+            return false;
+        }
+
+        Napi::Array arr = value.As<Napi::Array>();
+        out.reserve(out.size() + arr.Length());
+
+        for (uint32_t i = 0; i < arr.Length(); i++) {
+            Napi::Value item = arr.Get(i);
+            if (!item.IsString()) {
+                err = std::string("invalid array item for ") + key;
+                return false;
+            }
+            out.push_back(osu_filter::to_lower_copy(item.As<Napi::String>().Utf8Value()));
+        }
+
+        return true;
+    }
+
+    static bool parse_optional_string_prop(const Napi::Object& obj, const char* key, std::string& out, bool& has,
+                                           std::string& err) {
+        if (!obj.Has(key)) {
+            return true;
+        }
+
+        Napi::Value value = obj.Get(key);
+        if (!value.IsString()) {
+            err = std::string("invalid string for ") + key;
+            return false;
+        }
+
+        out = osu_filter::to_lower_copy(value.As<Napi::String>().Utf8Value());
+        has = true;
+        return true;
+    }
+
+    static bool parse_filter_props(const Napi::Value& value, osu_filter::osu_db_filter_props& out, std::string& err) {
+        if (!is_object(value)) {
+            err = "properties must be an object";
+            return false;
+        }
+
+        Napi::Object obj = value.As<Napi::Object>();
+
+        if (obj.Has("query")) {
+            Napi::Value q = obj.Get("query");
+            if (!q.IsString()) {
+                err = "invalid query";
+                return false;
+            }
+            std::string query = q.As<Napi::String>();
+            if (!osu_filter::parse_query(query, out, err)) {
+                return false;
+            }
+        }
+
+        if (!parse_int_list(obj, "mode", out.modes, err) ||
+            !parse_int_list(obj, "ranked_status", out.ranked_statuses, err) ||
+            !parse_int_list(obj, "beatmap_id", out.beatmap_ids, err) ||
+            !parse_int_list(obj, "difficulty_id", out.difficulty_ids, err) ||
+            !parse_int_list(obj, "thread_id", out.thread_ids, err)) {
+            return false;
+        }
+
+        if (!parse_string_list(obj, "md5", out.md5_list, err)) {
+            return false;
+        }
+
+        if (!parse_optional_string_prop(obj, "artist", out.artist, out.has_artist, err) ||
+            !parse_optional_string_prop(obj, "title", out.title, out.has_title, err) ||
+            !parse_optional_string_prop(obj, "creator", out.creator, out.has_creator, err) ||
+            !parse_optional_string_prop(obj, "difficulty", out.difficulty, out.has_difficulty, err) ||
+            !parse_optional_string_prop(obj, "source", out.source, out.has_source, err) ||
+            !parse_optional_string_prop(obj, "tags", out.tags, out.has_tags, err) ||
+            !parse_optional_string_prop(obj, "folder_name", out.folder_name, out.has_folder_name, err) ||
+            !parse_optional_string_prop(obj, "audio_file_name", out.audio_file_name, out.has_audio_file_name, err) ||
+            !parse_optional_string_prop(obj, "osu_file_name", out.osu_file_name, out.has_osu_file_name, err)) {
+            return false;
+        }
+
+        if (!parse_number_range(obj, "ar", out.ar, err) || !parse_number_range(obj, "cs", out.cs, err) ||
+            !parse_number_range(obj, "hp", out.hp, err) || !parse_number_range(obj, "od", out.od, err) ||
+            !parse_number_range(obj, "drain_time", out.drain_time, err) ||
+            !parse_number_range(obj, "total_time", out.total_time, err) ||
+            !parse_number_range(obj, "duration", out.duration, err) ||
+            !parse_number_range(obj, "audio_preview_time", out.audio_preview_time, err) ||
+            !parse_number_range(obj, "star_rating", out.star_rating, err)) {
+            return false;
+        }
+
+        out.has_ar = obj.Has("ar");
+        out.has_cs = obj.Has("cs");
+        out.has_hp = obj.Has("hp");
+        out.has_od = obj.Has("od");
+        out.has_drain_time = obj.Has("drain_time");
+        out.has_total_time = obj.Has("total_time");
+        out.has_duration = obj.Has("duration");
+        out.has_audio_preview_time = obj.Has("audio_preview_time");
+        out.has_star_rating = obj.Has("star_rating");
+
+        if (obj.Has("id_type")) {
+            Napi::Value id_type = obj.Get("id_type");
+            if (!id_type.IsString()) {
+                err = "invalid id_type";
+                return false;
+            }
+            out.id_type = id_type.As<Napi::String>();
+        }
+
+        if (obj.Has("sort")) {
+            Napi::Value sort_val = obj.Get("sort");
+            if (!is_object(sort_val)) {
+                err = "invalid sort";
+                return false;
+            }
+
+            Napi::Object sort_obj = sort_val.As<Napi::Object>();
+            if (!sort_obj.Has("key") || !sort_obj.Get("key").IsString()) {
+                err = "invalid sort key";
+                return false;
+            }
+
+            out.sort_key = sort_obj.Get("key").As<Napi::String>().Utf8Value();
+            out.sort_desc = false;
+
+            if (sort_obj.Has("order")) {
+                Napi::Value order_val = sort_obj.Get("order");
+                if (!order_val.IsString()) {
+                    err = "invalid sort order";
+                    return false;
+                }
+                std::string order = osu_filter::to_lower_copy(order_val.As<Napi::String>().Utf8Value());
+                if (order == "desc") {
+                    out.sort_desc = true;
+                } else if (order == "asc") {
+                    out.sort_desc = false;
+                } else {
+                    err = "invalid sort order";
+                    return false;
+                }
+            }
+        }
+
+        return true;
+    }
+
     bool parse_int_float_pair(const Napi::Value& value, osu_int_float_pair& out, std::string& err) {
         if (!is_object(value)) {
             err = "int-float pair must be an object";
@@ -100,6 +348,18 @@ namespace osu_bindings {
                 beatmap.entry_size = value.As<Napi::Number>().Int32Value();
             } else {
                 err = "invalid type for entry_size";
+                return false;
+            }
+        }
+
+        if (patch.Has("duration")) {
+            Napi::Value value = patch.Get("duration");
+            if (value.IsNull()) {
+                beatmap.duration.reset();
+            } else if (value.IsNumber()) {
+                beatmap.duration = value.As<Napi::Number>().DoubleValue();
+            } else {
+                err = "invalid type for duration";
                 return false;
             }
         }
@@ -227,6 +487,7 @@ namespace osu_bindings {
         obj.Set("star_rating_mania", star_mania);
         obj.Set("drain_time", beatmap.drain_time);
         obj.Set("total_time", beatmap.total_time);
+        obj.Set("duration", optional_double_to_js(env, beatmap.duration));
         obj.Set("audio_preview_time", beatmap.audio_preview_time);
 
         Napi::Array timing_points = Napi::Array::New(env, beatmap.timing_points.size());
@@ -406,6 +667,118 @@ namespace osu_bindings {
             [&](osu_legacy_database& data, osu_db_parser&) { return osu_db_get_by_key(env, data, key); });
     }
 
+    Napi::Value osu_db_parser_filter_by_properties(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (info.Length() < 2 || !is_object(info[1])) {
+            Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        osu_filter::osu_db_filter_props props;
+        std::string err;
+
+        if (!parse_filter_props(info[1], props, err)) {
+            Napi::Error::New(env, err).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
+            std::vector<const osu_db_beatmap*> matches = osu_filter::filter_by_properties(data, props);
+
+            Napi::Array result = Napi::Array::New(env, matches.size());
+            for (size_t i = 0; i < matches.size(); i++) {
+                result.Set(static_cast<uint32_t>(i), beatmap_to_js(env, *matches[i]));
+            }
+
+            return result;
+        });
+    }
+
+    Napi::Value osu_db_parser_filter_md5_by_properties(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (info.Length() < 2 || !is_object(info[1])) {
+            Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        osu_filter::osu_db_filter_props props;
+        std::string err;
+
+        if (!parse_filter_props(info[1], props, err)) {
+            Napi::Error::New(env, err).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
+            std::vector<std::string> matches = osu_filter::filter_md5_by_properties(data, props);
+
+            Napi::Array result = Napi::Array::New(env, matches.size());
+            for (size_t i = 0; i < matches.size(); i++) {
+                result.Set(static_cast<uint32_t>(i), Napi::String::New(env, matches[i]));
+            }
+
+            return result;
+        });
+    }
+
+    Napi::Value osu_db_parser_filter_ids_by_properties(const Napi::CallbackInfo& info) {
+        Napi::Env env = info.Env();
+        osu_db_instance* instance = get_ptr<osu_db_instance>(info, 0);
+
+        if (instance == nullptr) {
+            Napi::Error::New(env, "invalid parser handle").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        if (info.Length() < 2 || !is_object(info[1])) {
+            Napi::TypeError::New(env, "properties must be an object").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        osu_filter::osu_db_filter_props props;
+        std::string err;
+
+        if (!parse_filter_props(info[1], props, err)) {
+            Napi::Error::New(env, err).ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        const std::string id_type = props.id_type.empty() ? "difficulty_id" : props.id_type;
+
+        if (id_type != "difficulty_id" && id_type != "beatmap_id") {
+            Napi::Error::New(env, "invalid id_type").ThrowAsJavaScriptException();
+            return env.Undefined();
+        }
+
+        const osu_filter::id_type type =
+            id_type == "beatmap_id" ? osu_filter::id_type::beatmap_id : osu_filter::id_type::difficulty_id;
+
+        return instance->with_lock([&](osu_legacy_database& data, osu_db_parser&) {
+            std::vector<int32_t> matches = osu_filter::filter_ids_by_properties(data, props, type);
+
+            Napi::Array result = Napi::Array::New(env, matches.size());
+            for (size_t i = 0; i < matches.size(); i++) {
+                result.Set(static_cast<uint32_t>(i), Napi::Number::New(env, matches[i]));
+            }
+
+            return result;
+        });
+    }
+
     void register_osu_db(Napi::Env env, Napi::Object exports) {
         exports.Set("create_osu_db_parser", Napi::Function::New(env, create_osu_db_parser));
         exports.Set("free_osu_db_parser", Napi::Function::New(env, free_osu_db_parser));
@@ -415,5 +788,10 @@ namespace osu_bindings {
         exports.Set("osu_db_parser_get", Napi::Function::New(env, osu_db_parser_get));
         exports.Set("osu_db_parser_update", Napi::Function::New(env, osu_db_parser_update));
         exports.Set("osu_db_parser_get_by_name", Napi::Function::New(env, osu_db_parser_get_by_name));
+        exports.Set("osu_db_parser_filter_by_properties", Napi::Function::New(env, osu_db_parser_filter_by_properties));
+        exports.Set("osu_db_parser_filter_md5_by_properties",
+                    Napi::Function::New(env, osu_db_parser_filter_md5_by_properties));
+        exports.Set("osu_db_parser_filter_ids_by_properties",
+                    Napi::Function::New(env, osu_db_parser_filter_ids_by_properties));
     }
 }

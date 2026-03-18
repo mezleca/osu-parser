@@ -7,6 +7,7 @@ namespace osu_bindings {
     void register_scores_db(Napi::Env env, Napi::Object exports);
     void register_replay(Napi::Env env, Napi::Object exports);
     void register_osdb(Napi::Env env, Napi::Object exports);
+    void register_utils(Napi::Env env, Napi::Object exports);
 }
 
 Napi::Object init(Napi::Env env, Napi::Object exports) {
@@ -16,6 +17,7 @@ Napi::Object init(Napi::Env env, Napi::Object exports) {
     osu_bindings::register_scores_db(env, exports);
     osu_bindings::register_replay(env, exports);
     osu_bindings::register_osdb(env, exports);
+    osu_bindings::register_utils(env, exports);
     return exports;
 }
 

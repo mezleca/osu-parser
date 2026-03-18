@@ -24,6 +24,7 @@ target_sources(osu_parser PRIVATE
     "src/native/bindings/scores_db.cpp"
     "src/native/bindings/replay.cpp"
     "src/native/bindings/osdb.cpp"
+    "src/native/bindings/utils.cpp"
 )
 set_target_properties(osu_parser PROPERTIES PREFIX "" SUFFIX ".node" OUTPUT_NAME "osu-parser")
 

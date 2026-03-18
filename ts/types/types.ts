@@ -241,6 +241,7 @@ export interface OsuDbBeatmap {
     star_rating_mania: OsuIntFloatPair[];
     drain_time: number;
     total_time: number;
+    duration: number | null;
     audio_preview_time: number;
     timing_points: OsuDbTimingPoint[];
     difficulty_id: number;
@@ -294,6 +295,44 @@ export type OsuDbKey =
     | "permissions";
 
 export type OsuDbUpdate = DeepPartial<OsuLegacyDatabase>;
+
+export type NumberRange = {
+    min?: number;
+    max?: number;
+};
+
+export type OsuDbFilterProperties = {
+    query?: string;
+    mode?: number | number[];
+    ranked_status?: number | number[];
+    beatmap_id?: number | number[];
+    difficulty_id?: number | number[];
+    thread_id?: number | number[];
+    md5?: string | string[];
+    artist?: string;
+    title?: string;
+    creator?: string;
+    difficulty?: string;
+    source?: string;
+    tags?: string;
+    folder_name?: string;
+    audio_file_name?: string;
+    osu_file_name?: string;
+    ar?: NumberRange;
+    cs?: NumberRange;
+    hp?: NumberRange;
+    od?: NumberRange;
+    drain_time?: NumberRange;
+    total_time?: NumberRange;
+    duration?: NumberRange;
+    audio_preview_time?: NumberRange;
+    star_rating?: NumberRange;
+    id_type?: "difficulty_id" | "beatmap_id";
+    sort?: {
+        key: string;
+        order?: "asc" | "desc";
+    };
+};
 
 export interface OsuCollection {
     name: string;
@@ -400,6 +439,9 @@ export interface NativeBindings {
     osu_db_parser_get(handle: bigint): OsuLegacyDatabase;
     osu_db_parser_update(handle: bigint, patch: OsuDbUpdate): boolean;
     osu_db_parser_get_by_name(handle: bigint, key: OsuDbKey): unknown;
+    osu_db_parser_filter_by_properties(handle: bigint, properties: OsuDbFilterProperties): OsuDbBeatmap[];
+    osu_db_parser_filter_md5_by_properties(handle: bigint, properties: OsuDbFilterProperties): string[];
+    osu_db_parser_filter_ids_by_properties(handle: bigint, properties: OsuDbFilterProperties): number[];
 
     create_osu_collection_db_parser(): bigint;
     free_osu_collection_db_parser(handle: bigint): void;
@@ -432,4 +474,6 @@ export interface NativeBindings {
     osdb_parser_get(handle: bigint): OsdbData;
     osdb_parser_update(handle: bigint, patch: OsdbUpdate): boolean;
     osdb_parser_get_by_name(handle: bigint, key: OsdbKey): unknown;
+
+    get_common_bpm(timing_points: OsuDbTimingPoint[], length?: number): number;
 }

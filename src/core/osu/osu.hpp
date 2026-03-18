@@ -45,6 +45,7 @@ struct osu_db_beatmap {
     std::vector<osu_int_float_pair> star_rating_mania;
     int32_t drain_time = 0;
     int32_t total_time = 0;
+    std::optional<double> duration;
     int32_t audio_preview_time = 0;
     std::vector<osu_db_timing_point> timing_points;
     int32_t difficulty_id = 0;

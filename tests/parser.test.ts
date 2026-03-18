@@ -322,6 +322,85 @@ describe("osu!.db parser", () => {
             parser.free();
         }
     });
+
+    test("filter helpers", async () => {
+        const parser = new OsuDbParser();
+        try {
+            const file_path = path.join(ROOT, files.osu_db);
+            await parser.parse(file_path);
+            const data = parser.get();
+            const first = data.beatmaps[0];
+            const safe = (value: string) => value.replaceAll('"', "");
+
+            const mode_alias = (mode: number) => {
+                switch (mode) {
+                    case 1:
+                        return "t";
+                    case 2:
+                        return "c";
+                    case 3:
+                        return "m";
+                    case 0:
+                    default:
+                        return "o";
+                }
+            };
+
+            const status_alias = (status: number) => {
+                switch (status) {
+                    case 4:
+                        return "r";
+                    case 5:
+                        return "a";
+                    case 2:
+                        return "p";
+                    case 1:
+                        return "n";
+                    case 0:
+                        return "u";
+                    case 7:
+                        return "l";
+                    default:
+                        return "u";
+                }
+            };
+
+            const by_md5 = parser.filter_by_properties({ md5: first.md5 });
+            expect(by_md5.length).toBe(1);
+            expect(by_md5[0].md5).toBe(first.md5);
+
+            const by_query = parser.filter_by_properties({ query: `${first.artist} ${first.title}` });
+            expect(by_query.length).toBeGreaterThan(0);
+
+            const advanced_query = [
+                `artist="${safe(first.artist)}"`,
+                `title="${safe(first.title)}"`,
+                `mapper="${safe(first.creator)}"`,
+                `diff="${safe(first.difficulty)}"`,
+                `ar>=${Math.max(0, first.approach_rate - 0.01)}`,
+                `cs>=${Math.max(0, first.circle_size - 0.01)}`,
+                `od>=${Math.max(0, first.overall_difficulty - 0.01)}`,
+                `hp>=${Math.max(0, first.hp_drain - 0.01)}`,
+                `length>=${Math.max(0, first.total_time / 1000 - 1)}`,
+                `mode=${mode_alias(first.mode)}`,
+                `status=${status_alias(first.ranked_status)},l`
+            ].join(" ");
+
+            const by_advanced = parser.filter_by_properties({ query: advanced_query });
+            expect(by_advanced.some((beatmap) => beatmap.md5 === first.md5)).toBe(true);
+
+            const md5_list = parser.filter_md5_by_properties({ md5: first.md5 });
+            expect(md5_list).toEqual([first.md5]);
+
+            const diff_ids = parser.filter_ids_by_properties({ md5: first.md5 });
+            expect(diff_ids).toEqual([first.difficulty_id]);
+
+            const set_ids = parser.filter_ids_by_properties({ md5: first.md5, id_type: "beatmap_id" });
+            expect(set_ids).toEqual([first.beatmap_id]);
+        } finally {
+            parser.free();
+        }
+    });
 });
 
 describe("collection.db parser", () => {

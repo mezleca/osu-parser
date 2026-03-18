@@ -1,5 +1,5 @@
 import { native } from "./lib/bindings";
-import {
+import type {
     BeatmapKey,
     BeatmapUpdate,
     OsdbData,
@@ -9,12 +9,19 @@ import {
     OsuCollectionDbKey,
     OsuCollectionDbUpdate,
     OsuDbKey,
+    OsuDbFilterProperties,
+    OsuDbBeatmap,
     OsuDbUpdate,
     OsuFileFormat,
     OsuLegacyDatabase,
     OsuReplay,
+    OsuDbTimingPoint,
     OsuScoresDb
 } from "./types/types";
+
+export const get_common_bpm = (timing_points: OsuDbTimingPoint[], length = 0) => {
+    return native.get_common_bpm(timing_points, length);
+};
 
 const resolve_fns = (prefix: string) => {
     const n = native as Record<string, any>;
@@ -27,7 +34,16 @@ const resolve_fns = (prefix: string) => {
         get: n[`${prefix}_get`] as (handle: bigint) => unknown,
         last_error: n[`${prefix}_last_error`] as (handle: bigint) => string | null,
         get_by_name: n[`${prefix}_get_by_name`] as ((handle: bigint, key: string) => unknown) | undefined,
-        update: n[`${prefix}_update`] as ((handle: bigint, patch: unknown) => boolean) | undefined
+        update: n[`${prefix}_update`] as ((handle: bigint, patch: unknown) => boolean) | undefined,
+        filter_by_properties: n[`${prefix}_filter_by_properties`] as
+            | ((handle: bigint, properties: unknown) => unknown)
+            | undefined,
+        filter_md5_by_properties: n[`${prefix}_filter_md5_by_properties`] as
+            | ((handle: bigint, properties: unknown) => string[])
+            | undefined,
+        filter_ids_by_properties: n[`${prefix}_filter_ids_by_properties`] as
+            | ((handle: bigint, properties: unknown) => number[])
+            | undefined
     };
 };
 
@@ -127,6 +143,30 @@ export class BeatmapParser extends UpdatableParser<OsuFileFormat, BeatmapKey, Be
 export class OsuDbParser extends UpdatableParser<OsuLegacyDatabase, OsuDbKey, OsuDbUpdate> {
     constructor() {
         super("osu_db_parser");
+    }
+
+    filter_by_properties(properties: OsuDbFilterProperties) {
+        this.assert_handle();
+        if (!this.fns.filter_by_properties) {
+            throw new Error(`${this.prefix}.filter_by_properties not implemented`);
+        }
+        return this.fns.filter_by_properties(this.handle, properties) as OsuDbBeatmap[];
+    }
+
+    filter_md5_by_properties(properties: OsuDbFilterProperties): string[] {
+        this.assert_handle();
+        if (!this.fns.filter_md5_by_properties) {
+            throw new Error(`${this.prefix}.filter_md5_by_properties not implemented`);
+        }
+        return this.fns.filter_md5_by_properties(this.handle, properties);
+    }
+
+    filter_ids_by_properties(properties: OsuDbFilterProperties): number[] {
+        this.assert_handle();
+        if (!this.fns.filter_ids_by_properties) {
+            throw new Error(`${this.prefix}.filter_ids_by_properties not implemented`);
+        }
+        return this.fns.filter_ids_by_properties(this.handle, properties);
     }
 }
 
