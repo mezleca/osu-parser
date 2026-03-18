@@ -60,15 +60,7 @@ describe("beatmap parser", () => {
 
         const data = parser.get();
 
-        if (data.version !== 3) {
-            // debug for windows CI
-            console.log("version", data.version, "type", typeof data.version);
-            console.log("raw", (data as any).__version_raw);
-            console.log("descriptor", Object.getOwnPropertyDescriptor(data, "version"));
-            console.log("keys", Object.keys(data).slice(0, 10));
-        }
-
-        expect(data.version).toBe(3);
+        expect(data.version).toBe("v3");
         expect(data.General.AudioFilename).toBe("Marisa wa Taihen na Mono wo Nusunde Ikimashita.mp3");
         expect(data.General.PreviewTime).toBe(91764);
         expect(data.General.Countdown).toBe(1);
@@ -102,7 +94,7 @@ describe("beatmap parser", () => {
 
         const data = parser.get();
 
-        expect(data.version).toBe(14);
+        expect(data.version).toBe("v14");
         expect(data.General.SampleSet).toBe("Soft");
         expect(data.General.Mode).toBe(0);
         expect(data.Editor.BeatDivisor).toBe(4);
@@ -127,7 +119,7 @@ describe("beatmap parser", () => {
 
         const data = parser.get();
 
-        expect(data.version).toBe(14);
+        expect(data.version).toBe("v14");
         expect(data.General.StackLeniency).toBeCloseTo(0.3, 6);
         expect(data.Metadata.Title).toBe("Diamonds From Sierra Leone");
         expect(data.Metadata.Creator).toBe("Herazu");

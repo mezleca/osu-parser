@@ -171,7 +171,7 @@ export interface HitObject {
 }
 
 export interface OsuFileFormat {
-    version: number;
+    version: string;
     General: GeneralSection;
     Editor: EditorSection;
     Metadata: MetadataSection;

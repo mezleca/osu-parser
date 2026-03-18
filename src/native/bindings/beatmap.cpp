@@ -3,7 +3,7 @@
 #include "beatmap/beatmap.hpp"
 #include "parser/parser_base.hpp"
 
-#include <iostream>
+#include <string>
 
 namespace osu_bindings {
     using beatmap_instance = parser_base<osu_beatmap, beatmap_parser>;
@@ -219,8 +219,7 @@ namespace osu_bindings {
     Napi::Object beatmap_to_js(Napi::Env& env, const osu_beatmap& file) {
         Napi::Object result = Napi::Object::New(env);
 
-        result.Set("version", Napi::Number::New(env, static_cast<double>(file.version)));
-        result.Set("__version_raw", Napi::BigInt::New(env, static_cast<int64_t>(file.version)));
+        result.Set("version", Napi::String::New(env, "v" + std::to_string(file.version)));
         result.Set("General", general_to_js(env, file.general));
         result.Set("Editor", editor_to_js(env, file.editor));
         result.Set("Metadata", metadata_to_js(env, file.metadata));
@@ -297,7 +296,6 @@ namespace osu_bindings {
             return env.Null();
         }
 
-        std::cerr << "[beatmap] get() version: " << instance->data.version << "\n";
         return beatmap_to_js(env, instance->data);
     }
 
